@@ -25,7 +25,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.6.0';
+  const APP_VERSION = '1.6.1';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -359,17 +359,6 @@
     return stickerCache.get(id);
   }
 
-  // Shrinks one line of text until it fits maxW (down to 60% of the start size).
-  function fitFont(ctx, text, maxW, size, weight, family) {
-    let s = size;
-    ctx.font = `${weight} ${s}px ${family}`;
-    while (ctx.measureText(text).width > maxW && s > size * 0.6) {
-      s *= 0.94;
-      ctx.font = `${weight} ${s}px ${family}`;
-    }
-    return s;
-  }
-
   // ---- selfie detection ----
   // iOS shows the front camera mirrored while shooting but saves the photo un-mirrored,
   // so selfies look flipped. iPhone photos name the lens in EXIF ("... front camera ..."),
@@ -424,14 +413,12 @@
     const done = new Set(dayParts(tk));
     const parts = state.parts.filter(p => done.has(p.id));
     const headline = photoHeadline(parts);
-    const partsLine = `${parts.map(p => p.name).join(' · ')} 완료`;
-    const statsLine = `연속 ${streak(t)}일 · 이번 주 ${weekCount(t)}/${state.weeklyGoal}회 · 올해 ${yearStats(t.getFullYear()).days}번째 출석`;
     const dateLine = `${t.getFullYear()}.${pad(t.getMonth() + 1)}.${pad(t.getDate())} ${WEEKDAYS_EN[t.getDay()]}`;
     const KR = '"Pretendard Variable", sans-serif';
 
     const [sticker] = await Promise.all([
       stickerId ? loadSticker(stickerId) : null,
-      ensurePhotoFonts(headline + partsLine + statsLine + dateLine + '오운완'),
+      ensurePhotoFonts(headline + dateLine + '오운완'),
     ]);
 
     const scale = Math.min(1, 1600 / Math.max(src.width, src.height));
@@ -509,21 +496,11 @@
       textMaxW = sx - m - 2 * u;
     }
 
-    // Bottom left block, stacked upward; each line shrinks to stay clear of the character.
+    // Bottom left: the headline only, sized to stay clear of the character.
     ctx.textBaseline = 'alphabetic';
     ctx.shadowColor = 'rgba(0,0,0,.35)';
     ctx.shadowBlur = 2 * u;
     let y = H - m;
-    ctx.fillStyle = 'rgba(255,255,255,.8)';
-    const statsSize = fitFont(ctx, statsLine, textMaxW, 3.4 * u, 600, KR);
-    ctx.fillText(statsLine, m, y);
-    y -= statsSize + 2.8 * u;
-
-    ctx.fillStyle = '#FFFFFF';
-    const partsSize = fitFont(ctx, partsLine, textMaxW, 5.4 * u, 800, KR);
-    ctx.fillText(partsLine, m, y);
-    y -= partsSize + 2.4 * u;
-
     const { size, lines } = fitHeadline(ctx, headline, textMaxW, 17 * u, 9 * u);
     ctx.font = `italic 900 ${size}px "Barlow Condensed", ${KR}`;
     ctx.fillStyle = VOLT;
