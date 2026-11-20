@@ -16,14 +16,13 @@
   // How each part reads in "___ DAY" on the 오운완 photo.
   const DAY_EN = { chest: 'CHEST', back: 'BACK', legs: 'LEG', arms: 'ARM', shoulders: 'SHOULDER', abs: 'ABS', cardio: 'CARDIO' };
   const VOLT = '#D4FF3F';
-  const BUILTIN_IDS = new Set(DEFAULT_PARTS.map(p => p.id));
   const CUSTOM_COLORS = ['#F472B6', '#818CF8', '#A3E635', '#2DD4BF', '#FB7185', '#94A3B8', '#E879F9', '#C08457'];
   const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
   const WEEKDAYS_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '2.1.0';
+  const APP_VERSION = '2.2.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -34,7 +33,7 @@
     next: svg('M9 5l7 7-7 7'),
     chart: svg('M5 20v-7M12 20V5M19 20v-10', 2.2),
     refresh: svg('M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', 2.2),
-    search: svg('M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20.5 20.5l-4.6-4.6', 2.2),
+    plus: svg('M12 5v14M5 12h14', 2.4),
     camera: svg('M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5zM12 15.6a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2z', 2.1),
   };
 
@@ -77,14 +76,11 @@
         const def = DEFAULT_PARTS.find(d => d.id === p.id);
         parts.push({
           id: p.id,
-          name: def ? def.name : (p.name.trim().slice(0, MAX_NAME) || '부위'),
-          color: def ? def.color : (/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#94A3B8'),
+          name: p.name.trim().slice(0, MAX_NAME) || (def ? def.name : '부위'),
+          color: /^#[0-9a-f]{6}$/i.test(p.color) ? p.color : (def ? def.color : '#94A3B8'),
         });
       }
-      DEFAULT_PARTS.forEach((d, i) => {
-        if (!seen.has(d.id)) parts.splice(Math.min(i, parts.length), 0, { ...d });
-      });
-      out.parts = parts;
+      if (parts.length) out.parts = parts;
     }
 
     const order = out.parts.map(p => p.id);
@@ -105,7 +101,6 @@
         userId: so.userId,
         handle: so.handle.slice(0, 20),
         nickname: so.nickname.slice(0, 12),
-        autoPost: so.autoPost !== false,
       };
     }
     if (typeof src.lastBackup === 'string' && !Number.isNaN(Date.parse(src.lastBackup))) out.lastBackup = src.lastBackup;
@@ -146,7 +141,7 @@
     calMonth: firstOfMonth(today()),
     statsYear: today().getFullYear(),
     sheetDate: null,
-    newColor: null,
+    partSheet: null, // { id (null = new), color } while the part sheet is open
     popId: null,
     latestVersion: null,
     updating: false,
@@ -195,6 +190,181 @@
     return { days, months, parts };
   }
 
+  // ---------- badges ----------
+  // Worked out from the records (and saved 오운완 photos) alone, so a restored backup or a
+  // new phone shows the same set without storing anything extra.
+  function badgeStats() {
+    const keys = Object.keys(state.records).filter(k => state.records[k].length).sort();
+    let bestStreak = 0;
+    let run = 0;
+    let prev = null;
+    let comeback = false;
+    let maxPartsDay = 0;
+    let mondays = 0;
+    let weekend = false;
+    let xmas = false;
+    let newYear = false;
+    const partCounts = {};
+    const weeks = new Map(); // monday key → { n, parts }
+    const months = {};
+    for (const k of keys) {
+      const d = parseKey(k);
+      const arr = state.records[k];
+      const gap = prev ? daysBetween(prev, d) : 0;
+      run = gap === 1 ? run + 1 : 1;
+      if (run > bestStreak) bestStreak = run;
+      if (gap > 14) comeback = true;
+      prev = d;
+      if (arr.length > maxPartsDay) maxPartsDay = arr.length;
+      for (const id of arr) partCounts[id] = (partCounts[id] || 0) + 1;
+      const dow = d.getDay();
+      if (dow === 1) mondays++;
+      if (dow === 6 && attended(keyOf(addDays(d, 1)))) weekend = true;
+      if (k.endsWith('-12-25')) xmas = true;
+      if (k.endsWith('-01-01')) newYear = true;
+      const wk = keyOf(startOfWeek(d));
+      const w = weeks.get(wk) || { n: 0, parts: new Set() };
+      w.n++;
+      for (const id of arr) w.parts.add(id);
+      weeks.set(wk, w);
+      const m = k.slice(0, 7);
+      months[m] = (months[m] || 0) + 1;
+    }
+    let bestGoalRun = 0;
+    let goalRun = 0;
+    let lastMet = null;
+    let allParts = false;
+    let perfectWeek = false;
+    for (const wk of [...weeks.keys()].sort()) {
+      const w = weeks.get(wk);
+      const d = parseKey(wk);
+      if (w.n === 7) perfectWeek = true;
+      if (state.parts.length > 1 && state.parts.every(p => w.parts.has(p.id))) allParts = true;
+      if (w.n < state.weeklyGoal) { lastMet = null; continue; }
+      goalRun = lastMet && daysBetween(lastMet, d) === 7 ? goalRun + 1 : 1;
+      if (goalRun > bestGoalRun) bestGoalRun = goalRun;
+      lastMet = d;
+    }
+    const fullMonth = Object.entries(months).some(([m, n]) => n === new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate());
+    const years = {};
+    for (const k of keys) years[k.slice(0, 4)] = (years[k.slice(0, 4)] || 0) + 1;
+    return {
+      first: keys[0] || null, months, years,
+      total: keys.length, bestStreak, bestGoalRun, bestMonth: Math.max(0, ...Object.values(months)), fullMonth,
+      partCounts, maxPartsDay, allParts, photos: photoThumbs.size,
+      perfectWeek, weekend, mondays, xmas, newYear, comeback,
+    };
+  }
+
+  // Each group has its own medal colour and shape on the 기록 tab.
+  const BADGE_GROUPS = [
+    { id: 'days', name: '누적 출석', color: '#D4FF3F', shape: 'circle' },
+    { id: 'streak', name: '연속 출석', color: '#FF8A3D', shape: 'square' },
+    { id: 'goal', name: '주간 목표', color: '#7FB2FF', shape: 'shield' },
+    { id: 'month', name: '한 달', color: '#B794FF', shape: 'circle' },
+    { id: 'parts', name: '부위', color: '#D4FF3F', shape: 'square' },
+    { id: 'photo', name: '오운완 사진', color: '#F4F4F0', shape: 'circle' },
+    { id: 'special', name: '스페셜', color: '#FFD43B', shape: 'shield' },
+  ];
+  const flag = v => [v ? 1 : 0, 1];
+  const BADGES = [
+    ...[
+      [1, '첫 출석', '헬스장 첫 체크'], [10], [25], [50], [75], [100], [150], [200], [300],
+      [365, '365일', '누적 1년치 출석'], [500], [1000],
+    ].map(([n, name, desc]) => ({
+      id: `days${n}`, group: 'days', num: String(n), unit: n === 1 ? 'Day' : 'Days',
+      name: name || `${n}일`, desc: desc || `누적 ${n}일 출석`, of: s => [s.total, n],
+    })),
+    ...[
+      [3, '3일 연달아 출석'], [5, '5일 연달아 출석'], [7, '일주일 내내 출석'], [10, '10일 연달아 출석'],
+      [14, '2주 내내 출석'], [21, '3주 내내 출석'], [30, '한 달 내내 출석'],
+    ].map(([n, desc]) => ({
+      id: `streak${n}`, group: 'streak', num: String(n), unit: 'Streak', name: `${n}일 연속`, desc, of: s => [s.bestStreak, n],
+    })),
+    ...[
+      [1, '주간 목표 달성', '한 주 목표 처음 달성'], [2, '', '2주 내리 목표 달성'], [4, '', '한 달 내리 목표 달성'],
+      [8, '', '두 달 내리 목표 달성'], [12, '', '석 달 내리 목표 달성'], [26, '', '반년 내리 목표 달성'],
+      [52, '', '1년 내내 목표 달성'],
+    ].map(([n, name, desc]) => ({
+      id: `goal${n}`, group: 'goal', num: String(n), unit: n === 1 ? 'Week' : 'Weeks',
+      name: name || `${n}주 연속 목표`, desc, of: s => [s.bestGoalRun, n],
+    })),
+    ...[10, 15, 20, 25].map(n => ({
+      id: `month${n}`, group: 'month', num: String(n), unit: 'A month', name: `한 달 ${n}일`, desc: `한 달에 ${n}일 출석`, of: s => [s.bestMonth, n],
+    })),
+    { id: 'monthFull', group: 'month', num: 'Full', unit: 'Month', name: '한 달 개근', desc: '한 달 하루도 안 빠짐', of: s => flag(s.fullMonth) },
+    ...DEFAULT_PARTS.map(p => ({
+      id: `part-${p.id}`, group: 'parts', num: '30', unit: PART_EN[p.id], color: p.color,
+      name: `${p.name} 30번`, desc: `${p.name} 운동 30번`, of: s => [s.partCounts[p.id] || 0, 30],
+    })),
+    { id: 'allParts', group: 'parts', num: 'All', unit: 'Parts', rainbow: true, name: '올라운더', desc: '한 주에 모든 부위', of: s => flag(s.allParts) },
+    { id: 'fullDay', group: 'parts', num: '4+', unit: 'In a day', name: '풀코스', desc: '하루에 4부위 이상', of: s => [s.maxPartsDay, 4] },
+    ...[[1, '첫 오운완', '오운완 사진 처음 저장'], [10], [30], [100]].map(([n, name, desc]) => ({
+      id: `photo${n}`, group: 'photo', num: String(n), unit: n === 1 ? 'Photo' : 'Photos',
+      name: name || `오운완 ${n}장`, desc: desc || `오운완 사진 ${n}장 저장`, of: s => [s.photos, n],
+    })),
+    { id: 'perfectWeek', group: 'special', num: '7/7', unit: 'Week', name: '완벽한 한 주', desc: '월~일 7일 모두 출석', of: s => flag(s.perfectWeek) },
+    { id: 'weekend', group: 'special', num: 'S+S', unit: 'Weekend', name: '주말 반납', desc: '토·일 이틀 다 출석', of: s => flag(s.weekend) },
+    { id: 'mondays', group: 'special', num: '10', unit: 'Mondays', name: '월요병 없음', desc: '월요일 출석 10번', of: s => [s.mondays, 10] },
+    { id: 'xmas', group: 'special', num: '12.25', unit: 'Xmas', name: '메리 운동마스', desc: '크리스마스에 출석', of: s => flag(s.xmas) },
+    { id: 'newYear', group: 'special', num: '1.1', unit: 'New year', name: '새해 첫 운동', desc: '1월 1일에 출석', of: s => flag(s.newYear) },
+    { id: 'comeback', group: 'special', num: 'Back', unit: 'Comeback', name: '다시 시작', desc: '2주 넘게 쉬다가 복귀', of: s => flag(s.comeback) },
+  ];
+
+  // Badges that never run out: one per month (attend MONTH_GOAL days that month) and
+  // one set per year (50·100·150·200 days in that year's season). They start from the
+  // month / year of the first check-in and grow as time passes.
+  const MONTH_GOAL = 12;
+  const SEASON_STEPS = [50, 100, 150, 200];
+  const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const MONTH_COLORS = ['#7FB2FF', '#B794FF', '#FF8FB1', '#9BE15D', '#3DDC97', '#38D9F5', '#FFD43B', '#FF8A3D', '#FF6B6B', '#FFB067', '#D4FF3F', '#F4F4F0'];
+  const SEASON_COLORS = ['#D4FF3F', '#38D9F5', '#FF8FB1', '#FFD43B', '#B794FF'];
+  const GROUP_STYLE = { monthly: { shape: 'circle' }, season: { shape: 'shield' } };
+
+  function timedBadges(s) {
+    const t = today();
+    const start = s.first ? parseKey(s.first) : t;
+    const out = [];
+    for (let d = new Date(start.getFullYear(), start.getMonth(), 1); d <= t; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const key = `${y}-${pad(m + 1)}`;
+      out.push({
+        id: `m${key}`, group: 'monthly', num: String(m + 1), unit: `${MONTH_SHORT[m]} ${y}`, color: MONTH_COLORS[m],
+        name: `${y}년 ${m + 1}월`, desc: `${m + 1}월에 ${MONTH_GOAL}일 출석`, current: key === keyOf(t).slice(0, 7),
+        of: st => [st.months[key] || 0, MONTH_GOAL],
+      });
+    }
+    for (let y = start.getFullYear(); y <= t.getFullYear(); y++) {
+      for (const n of SEASON_STEPS) {
+        out.push({
+          id: `s${y}-${n}`, group: 'season', year: y, num: String(n), unit: `${y} Season`, color: SEASON_COLORS[y % SEASON_COLORS.length],
+          name: `${y} 시즌 ${n}일`, label: `${n}일`, desc: `${y}년에 ${n}일 출석`, listDesc: `시즌 ${n}일 출석`, of: st => [st.years[y] || 0, n],
+        });
+      }
+    }
+    return out;
+  }
+
+  const allBadges = s => BADGES.concat(timedBadges(s));
+
+  function earnedBadges(s = badgeStats()) {
+    return new Set(allBadges(s).filter(b => { const [n, goal] = b.of(s); return n >= goal; }).map(b => b.id));
+  }
+
+  function newBadges(before) {
+    const s = badgeStats();
+    const now = earnedBadges(s);
+    return allBadges(s).filter(b => now.has(b.id) && !before.has(b.id));
+  }
+
+  function medal(b, on, cls = '') {
+    const g = BADGE_GROUPS.find(x => x.id === b.group) || GROUP_STYLE[b.group];
+    const size = [b.num.length >= 4 && 'long-num', b.unit.length >= 7 && 'long-unit', b.rainbow && 'rainbow'].filter(Boolean).join(' ');
+    return `<span class="medal ${g.shape}${on ? ' on' : ''}${size ? ` ${size}` : ''}${cls}" style="--mc:${b.color || g.color}" aria-hidden="true">
+      <b class="d">${b.num}</b><small>${b.unit}</small></span>`;
+  }
+
   // ---------- mutations ----------
   function toggle(key, id) {
     const cur = new Set(dayParts(key));
@@ -203,7 +373,6 @@
     const arr = state.parts.map(p => p.id).filter(x => cur.has(x));
     if (arr.length) state.records[key] = arr; else delete state.records[key];
     save();
-    queueDaySync(key);
     if (on && navigator.vibrate) navigator.vibrate(8);
     return on;
   }
@@ -213,21 +382,35 @@
     return CUSTOM_COLORS.find(c => !used.has(c)) || CUSTOM_COLORS[state.parts.length % CUSTOM_COLORS.length];
   }
 
-  function addPart() {
-    const input = $('#new-part');
+  // Saves the part sheet: a new part, or a new name / colour for an existing one.
+  function savePart() {
+    const ps = ui.partSheet;
+    if (!ps) return;
+    const input = $('#part-name');
     const name = input.value.trim().slice(0, MAX_NAME);
-    if (!name) { input.focus(); return; }
-    if (state.parts.some(p => p.name === name)) { toast('이미 있는 부위예요'); return; }
-    state.parts.push({ id: `c_${Date.now().toString(36)}`, name, color: ui.newColor || nextColor() });
-    ui.newColor = null;
+    if (!name) { input.focus(); toast('이름을 입력해 주세요'); return; }
+    if (state.parts.some(p => p.name === name && p.id !== ps.id)) { toast('이미 있는 부위예요'); return; }
+    if (ps.id) {
+      const p = partById(ps.id);
+      if (!p) return;
+      p.name = name;
+      p.color = ps.color;
+      toast(`'${name}' 바꿨어요`);
+    } else {
+      // Bringing back a deleted built-in part keeps its id, so its badge counts again.
+      const def = DEFAULT_PARTS.find(d => d.name === name && !partById(d.id));
+      state.parts.push(def ? { ...def, color: ps.color } : { id: `c_${Date.now().toString(36)}`, name, color: ps.color });
+      toast(`'${name}' 추가했어요`);
+    }
     save();
+    closeSheet();
     renderCurrent();
-    toast(`'${name}' 추가했어요`);
   }
 
   function deletePart(id) {
     const p = partById(id);
-    if (!p || BUILTIN_IDS.has(id)) return;
+    if (!p) return;
+    if (state.parts.length <= 1) { toast('부위는 하나 이상 있어야 해요'); return; }
     const uses = Object.values(state.records).filter(a => a.includes(id)).length;
     const msg = `'${p.name}' 부위를 지울까요?` + (uses ? `\n이 부위 기록 ${uses}회도 같이 지워져요.` : '');
     if (!confirm(msg)) return;
@@ -237,6 +420,7 @@
       if (rest.length) state.records[k] = rest; else delete state.records[k];
     }
     save();
+    closeSheet();
     renderCurrent();
     toast(`'${p.name}' 지웠어요`);
   }
@@ -331,7 +515,7 @@
     const msg = `백업 파일: 출석 기록 ${days}일${photos.length ? `, 사진 ${photos.length}장` : ''}\n`
       + `지금 기록(${nowDays}일)을 이 파일 내용으로 바꿀까요?`
       + (photos.length ? '\n사진은 지금 있는 사진에 더해지고, 같은 날짜는 파일 사진으로 바뀌어요.' : '')
-      + (switchesAccount ? `\n피드는 @${next.social.handle} 계정으로 로그인돼요.` : '');
+      + (switchesAccount ? `\n@${next.social.handle} 계정으로 로그인돼요.` : '');
     if (!confirm(msg)) return;
     state = next;
     save();
@@ -828,7 +1012,6 @@
 
   function syncPhotoControls() {
     syncFormatButtons();
-    syncFeedToggle();
   }
 
   async function renderPhoto() {
@@ -890,6 +1073,7 @@
     photoSource = null;
     photoUrl = '';
     photoBlob = null;
+    flushQueuedBadges();
   }
 
   async function savePhoto() {
@@ -900,18 +1084,18 @@
     if (!photoBlob) return;
     const key = photoKey || keyOf(today());
     const blob = photoBlob;
+    const badgesBefore = earnedBadges();
     // Keep it in the app under its date. Runs alongside the share sheet, which has to
     // open straight from the tap.
     const stored = storeDayPhoto(key, blob, photoSource, photoFlip).then(() => true, () => false);
-    const posting = loggedIn() && state.social.autoPost !== false ? postToFeed(key, blob).then(() => true, e => e) : null;
     await shareOrDownload(new File([blob], `owoonwan-${key}.jpg`, { type: 'image/jpeg' }));
     const ok = await stored;
-    if (ok) cloudPutPhoto(key);
-    const posted = posting ? await posting : null;
+    if (ok) {
+      cloudPutPhoto(key);
+      cheer.queued.push(...newBadges(badgesBefore));
+    }
     renderCurrent();
-    if (posted && posted !== true) toast(`피드에 못 올렸어요: ${posted.message}`);
-    else if (!ok) toast('앱에 저장하지 못했어요. 사진은 앨범에 저장해 두세요');
-    else toast(posted ? `${md(key)} 저장하고 피드에 올렸어요` : `${md(key)} 오운완으로 저장했어요`);
+    toast(ok ? `${md(key)} 오운완으로 저장했어요` : '앱에 저장하지 못했어요. 사진은 앨범에 저장해 두세요');
   }
 
   // ---------- 오운완 photo diary ----------
@@ -1068,14 +1252,12 @@
 
   const md = key => { const d = parseKey(key); return `${d.getMonth() + 1}월 ${d.getDate()}일`; };
 
-  // ---------- feed (social) ----------
-  // Instagram-style: a unique @handle, follow / following, a feed of 오운완 from
-  // people you follow, and a "오늘 간 사람" row. The server is a Cloudflare Worker.
-  // Accounts are @handle + password; this device keeps a session token in
-  // state.social (so a backup also restores the login).
+  // ---------- account & server ----------
+  // An @handle + password account keeps the records and 오운완 photos on the server
+  // (a Cloudflare Worker), so a new phone gets everything back on login. This device
+  // keeps a session token in state.social (so a backup also restores the login).
   const LOCAL_API = ['localhost', '127.0.0.1'].includes(location.hostname);
   const API_BASE = LOCAL_API ? 'http://localhost:8787' : 'https://gymchek-api.savetoyou365.workers.dev';
-  const AVATAR_COLORS = ['#FF5D5D', '#4F9BFF', '#3DDC97', '#FF9F43', '#A78BFA', '#FFD43B', '#38D9F5', '#F472B6'];
   const HANDLE_RE = /^(?!\.)(?!.*\.$)[a-z0-9._]{3,20}$/;
   const PW_MIN = 6;
 
@@ -1109,35 +1291,6 @@
       throw err;
     }
     return data;
-  }
-
-  function avatarColor(id) {
-    let h = 0;
-    for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-    return AVATAR_COLORS[h % AVATAR_COLORS.length];
-  }
-  const avatar = (id, name, cls = '') => `<span class="avatar${cls}" style="--c:${avatarColor(id)}">${esc([...String(name)][0] || '?')}</span>`;
-  const partNames = key => dayParts(key).map(id => partById(id)).filter(Boolean).map(p => p.name);
-  const shortDate = key => { const d = parseKey(key); return `${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${WEEKDAYS_EN[d.getDay()]}`; };
-  const profileLink = handle => `${location.origin}${location.pathname}?u=${encodeURIComponent(handle)}`;
-
-  // ---- check-in sync: followers see who went today ----
-  const daySyncTimers = new Map();
-  function queueDaySync(key) {
-    if (!loggedIn()) return;
-    clearTimeout(daySyncTimers.get(key));
-    daySyncTimers.set(key, setTimeout(() => {
-      daySyncTimers.delete(key);
-      api(`/api/days/${key}`, { method: 'PUT', body: { parts: partNames(key) } }).catch(() => { /* next change retries */ });
-    }, 800));
-  }
-
-  // Sends this year's check-ins once, so the profile's "올해 출석" is right from day one.
-  async function syncYear() {
-    const prefix = `${today().getFullYear()}-`;
-    const days = {};
-    for (const key of Object.keys(state.records)) if (key.startsWith(prefix)) days[key] = partNames(key);
-    try { await api('/api/days', { method: 'PUT', body: { days } }); } catch (e) { /* not critical */ }
   }
 
   // ---- cloud backup: records and day photos follow the account ----
@@ -1325,153 +1478,15 @@
     toast(ok ? '서버에 저장했어요' : '저장하지 못했어요. 인터넷 연결을 확인해 주세요');
   }
 
-  // ---- screens: a small stack (feed → profile → post …) with a back button ----
-  // mode: which form shows when logged out ('signup' | 'login').
-  const social = { stack: [{ view: 'feed' }], busy: false, pendingHandle: null, mode: 'signup', form: { handle: '', nickname: '', password: '' } };
-  const top = () => social.stack[social.stack.length - 1];
-
-  function socialPush(entry) {
-    social.stack.push(entry);
-    renderSocial();
-    $('#views').scrollTop = 0;
-    loadEntry(entry);
-  }
-
-  function socialBack() {
-    if (social.stack.length > 1) social.stack.pop();
-    renderSocial();
-    $('#views').scrollTop = 0;
-    const e = top();
-    if (e.stale) loadEntry(e);
-  }
-
-  function socialHome() {
-    social.stack = [social.stack[0]];
-    renderSocial();
-    loadEntry(social.stack[0], { quiet: true });
-  }
-
-  const openProfile = handle => socialPush({ view: 'profile', handle });
-
-  async function loadEntry(e, { quiet = false } = {}) {
-    if (!loggedIn() || !e) return;
-    e.loading = !quiet || !e.loaded;
-    e.error = '';
-    e.stale = false;
-    if (e === top() && ui.tab === 'social') renderSocial();
-    const t = today();
-    try {
-      if (e.view === 'feed') {
-        const [f, td] = await Promise.all([api('/api/feed'), api(`/api/today?date=${keyOf(t)}`)]);
-        e.posts = f.posts;
-        e.more = f.more;
-        e.today = td.users;
-      } else if (e.view === 'profile') {
-        const [p, g] = await Promise.all([
-          api(`/api/users/${encodeURIComponent(e.handle)}?year=${t.getFullYear()}`),
-          api(`/api/users/${encodeURIComponent(e.handle)}/posts`),
-        ]);
-        e.profile = p.profile;
-        e.posts = g.posts;
-        e.more = g.more;
-      } else if (e.view === 'follows') {
-        e.users = (await api(`/api/users/${encodeURIComponent(e.handle)}/${e.kind}`)).users;
-      } else if (e.view === 'post' && !e.post) {
-        e.post = (await api(`/api/posts/${e.id}`)).post;
-      }
-      e.loaded = true;
-    } catch (err) {
-      e.error = err.message;
-    }
-    e.loading = false;
-    if (e === top() && ui.tab === 'social') renderSocial();
-  }
-
-  async function loadMore() {
-    const e = top();
-    if (social.busy || !e.posts || !e.posts.length) return;
-    social.busy = true;
-    try {
-      const before = e.posts[e.posts.length - 1].createdAt;
-      const path = e.view === 'feed' ? `/api/feed?before=${before}` : `/api/users/${encodeURIComponent(e.handle)}/posts?before=${before}`;
-      const r = await api(path);
-      e.posts = e.posts.concat(r.posts);
-      e.more = r.more;
-    } catch (err) {
-      toast(err.message);
-    }
-    social.busy = false;
-    renderSocial();
-  }
-
-  // Applies a change to every copy of a post held by the screens in the stack.
-  function eachPost(id, fn) {
-    for (const e of social.stack) {
-      if (e.posts) e.posts.forEach(p => { if (p.id === id) fn(p); });
-      if (e.post && e.post.id === id) fn(e.post);
-    }
-  }
-
-  async function firePost(id) {
-    let next = null;
-    eachPost(id, p => {
-      if (next === null) next = !p.fired;
-      p.fired = next;
-      p.fires += next ? 1 : -1;
-    });
-    if (next === null) return;
-    renderSocial();
-    if (next && navigator.vibrate) navigator.vibrate(8);
-    try {
-      const r = await api(`/api/posts/${id}/fire`, { method: 'POST' });
-      eachPost(id, p => { p.fired = r.fired; p.fires = r.fires; });
-    } catch (err) {
-      eachPost(id, p => { p.fired = !next; p.fires += next ? -1 : 1; });
-      toast(err.message);
-    }
-    renderSocial();
-  }
-
-  async function deletePost(id) {
-    if (!confirm('이 오운완을 피드에서 지울까요?\n앱에 저장된 사진은 그대로예요.')) return;
-    try {
-      await api(`/api/posts/${id}`, { method: 'DELETE' });
-      for (const e of social.stack) {
-        if (e.posts) e.posts = e.posts.filter(p => p.id !== id);
-        if (e.profile && e.profile.isMe) e.profile.posts = Math.max(0, e.profile.posts - 1);
-      }
-      if (top().view === 'post') socialBack();
-      else renderSocial();
-      toast('지웠어요');
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  async function toggleFollow(handle, follow) {
-    try {
-      const r = await api(`/api/follows/${encodeURIComponent(handle)}`, { method: follow ? 'PUT' : 'DELETE' });
-      for (const e of social.stack) {
-        if (e.profile && e.profile.handle === handle) { e.profile.followed = r.followed; e.profile.followers = r.followers; }
-        if (e.profile && e.profile.isMe) e.profile.following = Math.max(0, e.profile.following + (follow ? 1 : -1));
-        (e.users || []).forEach(u => { if (u.handle === handle) u.followed = r.followed; });
-      }
-      social.stack[0].stale = true; // the feed changes with who you follow
-      renderSocial();
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
   // ---- account ----
+  // Logged out, Settings shows a small inline form; auth is null, 'login' or 'signup'.
+  const account = { auth: null, busy: false, form: { handle: '', password: '' } };
   const fieldValue = sel => ($(sel) ? $(sel).value : '');
 
   function showLoggedOut(handle) {
-    social.stack = [{ view: 'feed' }];
-    social.mode = 'login';
-    social.form = { handle: handle || '', nickname: '', password: '' };
+    account.auth = 'login';
+    account.form = { handle: handle || '', password: '' };
     ui.pwForm = false;
-    syncFeedToggle();
     renderCurrent();
   }
 
@@ -1482,50 +1497,40 @@
     resetCloud();
     save();
     showLoggedOut(handle);
-    toast('로그인이 풀렸어요. 다시 로그인해 주세요');
+    toast('로그인이 풀렸어요. 설정에서 다시 로그인해 주세요');
   }
 
-  // Sign up (handle + nickname + password) or log in (handle + password).
+  // Sign up or log in with @handle + password. (The server still keeps a nickname
+  // from the feed days; it's simply set to the handle.)
   async function submitAuth() {
-    if (social.busy) return;
-    const login = social.mode === 'login';
-    social.form = { // survives re-renders
-      handle: fieldValue('#soc-handle'),
-      nickname: login ? social.form.nickname : fieldValue('#soc-nickname'),
-      password: fieldValue('#soc-password'),
-    };
-    const handle = social.form.handle.trim().toLowerCase().replace(/^@/, '');
-    const nickname = social.form.nickname.trim();
-    const password = social.form.password;
+    if (account.busy) return;
+    const login = account.auth === 'login';
+    account.form = { handle: fieldValue('#soc-handle'), password: fieldValue('#soc-password') };
+    const handle = account.form.handle.trim().toLowerCase().replace(/^@/, '');
+    const password = account.form.password;
     if (!HANDLE_RE.test(handle)) { toast(login ? '아이디를 확인해 주세요' : '아이디는 영문 소문자·숫자·.·_ 로 3~20자예요'); return; }
-    if (!login && !nickname) { toast('닉네임을 정해 주세요'); return; }
     if (login && !password) { toast('비밀번호를 입력해 주세요'); return; }
     if (!login && [...password].length < PW_MIN) { toast(`비밀번호는 ${PW_MIN}자 이상이에요`); return; }
-    social.busy = true;
-    renderSocial();
+    account.busy = true;
+    renderCurrent();
     try {
       const { user, token } = login
         ? await api('/api/login', { method: 'POST', body: { handle, password } })
-        : await api('/api/users', { method: 'POST', body: { handle, nickname, password } });
-      state.social = { token, userId: user.id, handle: user.handle, nickname: user.nickname, autoPost: true };
+        : await api('/api/users', { method: 'POST', body: { handle, nickname: handle.slice(0, 12), password } });
+      state.social = { token, userId: user.id, handle: user.handle, nickname: user.nickname };
       resetCloud();
       save();
-      social.form = { handle: '', nickname: '', password: '' };
-      social.mode = 'signup';
-      toast(login ? `@${user.handle}로 로그인했어요` : `@${user.handle}로 시작했어요`);
-      social.busy = false;
-      syncFeedToggle();
+      account.auth = null;
+      account.form = { handle: '', password: '' };
+      account.busy = false;
+      toast(login ? `@${user.handle}로 로그인했어요` : `@${user.handle} 아이디를 만들었어요`);
+      renderCurrent();
       cloudSync({ welcome: login }); // brings records and photos back (login) or sends them up (sign-up)
-      await syncYear();
-      social.stack = [{ view: 'feed' }];
-      renderSocial();
-      loadEntry(social.stack[0]);
-      if (social.pendingHandle) { const h = social.pendingHandle; social.pendingHandle = null; openProfile(h); }
     } catch (err) {
-      social.busy = false;
-      if (login) social.form.password = '';
+      account.busy = false;
+      if (login) account.form.password = '';
       toast(err.message);
-      renderSocial();
+      renderCurrent();
     }
   }
 
@@ -1561,243 +1566,21 @@
     }
   }
 
-  async function renameMe() {
-    const next = prompt('새 닉네임 (12자까지)', state.social.nickname);
-    if (next === null || !next.trim()) return;
-    try {
-      const { user } = await api('/api/me', { method: 'PATCH', body: { nickname: next } });
-      state.social.nickname = user.nickname;
-      save();
-      for (const e of social.stack) {
-        if (e.profile && e.profile.isMe) e.profile.nickname = user.nickname;
-        (e.posts || []).forEach(p => { if (p.user.id === user.id) p.user.nickname = user.nickname; });
-      }
-      renderSocial();
-      toast('닉네임을 바꿨어요');
-    } catch (err) {
-      toast(err.message);
-    }
-  }
-
-  function shareProfile(handle) {
-    const text = `짐첵에서 같이 오운완 해요! @${handle}\n${profileLink(handle)}`;
-    if (navigator.share) navigator.share({ text }).catch(() => {});
-    else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('프로필 링크를 복사했어요'), () => toast(profileLink(handle)));
-    else toast(profileLink(handle));
-  }
-
-  // ---- search (results update without re-rendering the input) ----
-  let searchTimer = 0;
-  let searchSeq = 0;
-  function searchInput(q) {
-    clearTimeout(searchTimer);
-    const e = top();
-    e.q = q;
-    searchTimer = setTimeout(async () => {
-      const seq = ++searchSeq;
-      if (!q.trim()) { e.users = []; renderSearchResults(); return; }
-      try {
-        const r = await api(`/api/search?q=${encodeURIComponent(q.trim())}`);
-        if (seq !== searchSeq) return;
-        e.users = r.users;
-      } catch (err) {
-        e.users = [];
-        e.error = err.message;
-      }
-      renderSearchResults();
-    }, 250);
-  }
-
-  // ---- posting from the 오운완 screen ----
-  async function feedJpeg(blob) {
-    const img = await loadImage(blob);
-    const k = Math.min(1, 1440 / Math.max(img.width, img.height));
-    const c = document.createElement('canvas');
-    c.width = Math.round(img.width * k);
-    c.height = Math.round(img.height * k);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    if (img.close) img.close();
-    return new Promise((resolve, reject) => c.toBlob(b => (b ? resolve(b) : reject(new Error('jpeg'))), 'image/jpeg', 0.85));
-  }
-
-  async function postToFeed(key, blob) {
-    const form = new FormData();
-    form.append('date', key);
-    form.append('headline', photoHeadline(dayParts(key).map(id => partById(id)).filter(Boolean)));
-    form.append('parts', JSON.stringify(partNames(key)));
-    form.append('image', new File([await feedJpeg(blob)], `${key}.jpg`, { type: 'image/jpeg' }));
-    const { post } = await api('/api/posts', { method: 'POST', form });
-    for (const e of social.stack) {
-      if (e.view === 'feed' && e.posts) e.posts.unshift(post);
-      if (e.profile && e.profile.isMe) { e.posts = [post].concat(e.posts || []); e.profile.posts++; }
-    }
-    return post;
-  }
-
-  function syncFeedToggle() {
-    $('#photo-crew-row').hidden = !loggedIn();
-    $('#photo-crew').checked = Boolean(state.social && state.social.autoPost !== false);
-  }
-
-  // ---- rendering ----
-  function postCard(p) {
-    const mine = loggedIn() && p.user.id === state.social.userId;
-    return `<article class="post">
-      <header class="post-head">
-        <button class="post-user" data-action="soc-profile" data-handle="${esc(p.user.handle)}">
-          ${avatar(p.user.id, p.user.nickname)}
-          <span><b>${esc(p.user.nickname)}</b><small>@${esc(p.user.handle)} · ${shortDate(p.date)}</small></span>
-        </button>
-        ${mine ? `<button class="text-btn" data-action="post-delete" data-id="${esc(p.id)}">삭제</button>` : ''}
-      </header>
-      <img class="post-img" src="${esc(API_BASE + p.image)}" alt="${esc(p.user.nickname)}의 오운완" loading="lazy" decoding="async">
-      <footer class="post-foot">
-        <button class="fire${p.fired ? ' on' : ''}" data-action="post-fire" data-id="${esc(p.id)}" aria-pressed="${p.fired}">🔥 <span>${p.fires}</span></button>
-        <span class="post-parts">${esc(p.parts.join(' · '))}</span>
-        <span class="post-headline">${esc(p.headline)}</span>
-      </footer>
-    </article>`;
-  }
-
-  const userRow = u => `<div class="user-row">
-      <button class="post-user" data-action="soc-profile" data-handle="${esc(u.handle)}">
-        ${avatar(u.id, u.nickname)}<span><b>${esc(u.nickname)}</b><small>@${esc(u.handle)}</small></span>
-      </button>
-      ${u.isMe ? '' : `<button class="btn small${u.followed ? '' : ' primary'}" data-action="${u.followed ? 'soc-unfollow' : 'soc-follow'}" data-handle="${esc(u.handle)}">${u.followed ? '팔로잉' : '팔로우'}</button>`}
-    </div>`;
-
-  const subHead = title => `<header class="subhead">
-      <button class="icon-btn" data-action="soc-back" aria-label="뒤로">${ICON.prev}</button>
-      <h1>${title}</h1>
-      <span class="subhead-spacer"></span>
-    </header>`;
-
-  const status = e => (e.loading && !e.loaded ? '<p class="crew-empty">불러오는 중…</p>'
-    : e.error && !e.loaded ? `<p class="crew-empty">${esc(e.error)}<br><button class="btn" data-action="soc-retry">다시 시도</button></p>` : '');
-
-  function onboardingHtml() {
-    const login = social.mode === 'login';
-    const f = social.form;
-    const label = social.busy ? (login ? '확인 중…' : '만드는 중…') : (login ? '로그인' : '시작하기');
-    return `<header class="head"><div><p class="kicker">Feed</p><h1>${login ? '로그인' : '피드'}</h1></div></header>
-      <div class="crew-intro">${login
-        ? '아이디와 비밀번호로 들어오면 팔로우, 올린 오운완, 그리고 서버에 저장된 <b>출석 기록과 오운완 사진</b>까지 이 폰으로 돌아와요.'
-        : `아이디를 만들면 친구를 <b>팔로우</b>하고, 서로 <b>오늘 운동했는지</b>랑 <b>오운완 카드</b>를 볼 수 있어요. 🔥로 응원도 하고요.<br>
-        누가 몇 kg 들었는지 같은 건 없어요. 그냥 오운완이에요.<br>
-        가입하면 출석 기록과 오운완 사진이 <b>서버에도 자동 저장</b>돼서, 폰을 바꿔도 로그인만 하면 그대로예요.`}
-      </div>
-      <form class="auth-form" data-form="soc-auth" novalidate>
-        <div class="crew-panel">
-          <h2>아이디</h2>
-          <div class="field handle-field"><span>@</span><input id="soc-handle" name="username" type="text" maxlength="20" value="${esc(f.handle)}" placeholder="gym_heon" autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" enterkeyhint="next"></div>
-          ${login ? '' : '<p class="note">영문 소문자·숫자·마침표(.)·밑줄(_) 3~20자 · 친구가 이걸로 찾아요</p>'}
+  function authFormHtml() {
+    const login = account.auth === 'login';
+    const f = account.form;
+    const label = account.busy ? (login ? '확인 중…' : '만드는 중…') : (login ? '로그인' : '만들기');
+    return `<form class="pw-form auth-form" data-form="soc-auth" novalidate>
+        <p class="auth-title">${login ? '로그인' : '아이디 만들기'}</p>
+        <div class="field handle-field"><span>@</span><input id="soc-handle" name="username" type="text" maxlength="20" value="${esc(f.handle)}" placeholder="아이디" autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" enterkeyhint="next" aria-label="아이디"></div>
+        <input id="soc-password" name="password" type="password" maxlength="64" value="${esc(f.password)}" placeholder="${login ? '비밀번호' : `비밀번호 (${PW_MIN}자 이상)`}" autocomplete="${login ? 'current-password' : 'new-password'}" enterkeyhint="go" aria-label="비밀번호">
+        ${login ? '' : '<p class="note">아이디는 영문 소문자·숫자·.·_ 3~20자예요. 이메일을 받지 않아서 비밀번호를 잊으면 찾을 수 없어요. 아이폰이 암호를 저장할지 물으면 저장해 두세요.</p>'}
+        <div class="pw-actions">
+          <button type="button" class="btn" data-action="auth-cancel">취소</button>
+          <button type="submit" class="btn primary"${account.busy ? ' disabled' : ''}>${label}</button>
         </div>
-        ${login ? '' : `<div class="crew-panel">
-          <h2>닉네임</h2>
-          <div class="field"><input id="soc-nickname" type="text" maxlength="12" value="${esc(f.nickname)}" placeholder="피드에 보일 이름" autocomplete="nickname" enterkeyhint="next"></div>
-        </div>`}
-        <div class="crew-panel">
-          <h2>비밀번호</h2>
-          <div class="field"><input id="soc-password" name="password" type="password" maxlength="64" value="${esc(f.password)}" placeholder="${login ? '비밀번호' : `${PW_MIN}자 이상`}" autocomplete="${login ? 'current-password' : 'new-password'}" enterkeyhint="go"></div>
-          ${login ? '' : '<p class="note">새 폰에서 로그인할 때 써요. 이메일을 받지 않아서 잊어버리면 찾을 수 없어요. 아이폰이 암호를 저장할지 물으면 저장해 두세요.</p>'}
-        </div>
-        <button class="photo-cta" type="submit"${social.busy ? ' disabled' : ''}><span>${label}</span></button>
-      </form>
-      <p class="auth-switch">${login ? '처음이에요?' : '이미 아이디가 있어요?'} <button class="link-btn" data-action="soc-mode" data-mode="${login ? 'signup' : 'login'}">${login ? '아이디 만들기' : '로그인'}</button></p>
-      ${social.pendingHandle ? `<p class="note">${login ? '로그인하면' : '시작하면'} @${esc(social.pendingHandle)}님 프로필로 이동해요.</p>` : ''}`;
-  }
-
-  function feedHtml(e) {
-    const me = state.social;
-    const today = (e.today || []).map(u => `
-      <button class="member on" data-action="soc-profile" data-handle="${esc(u.handle)}">
-        ${avatar(u.id, u.nickname)}
-        <b>${esc(u.isMe ? '나' : u.nickname)}</b>
-        <small>${esc(u.parts.join('·'))}</small>
-      </button>`).join('');
-    const posts = (e.posts || []).map(postCard).join('');
-    const lonely = e.loaded && !(e.posts || []).length;
-    return `<header class="head">
-        <div><p class="kicker">Feed</p><h1>피드</h1></div>
-        <div class="nav">
-          <button class="icon-btn" data-action="soc-search" aria-label="친구 찾기">${ICON.search}</button>
-          <button class="avatar-btn" data-action="soc-profile" data-handle="${esc(me.handle)}" aria-label="내 프로필">${avatar(me.userId, me.nickname, ' small')}</button>
-        </div>
-      </header>
-      ${status(e)}
-      ${e.loaded ? `
-      <div class="section-head"><h2>오늘 간 사람 <span class="count">${(e.today || []).length}</span></h2><span class="kicker">Today</span></div>
-      ${today ? `<div class="members">${today}</div>` : '<p class="note today-empty">팔로우한 사람 중 오늘 체크한 사람이 아직 없어요.</p>'}
-      ${lonely ? `<div class="crew-intro">
-          아직 피드가 비어 있어요. 친구 아이디를 <b>검색</b>해서 팔로우하거나, <b>내 프로필 링크</b>를 보내서 서로 팔로우해 보세요.
-          <div class="intro-actions">
-            <button class="btn primary" data-action="soc-search">친구 찾기</button>
-            <button class="btn" data-action="soc-share" data-handle="${esc(me.handle)}">내 프로필 공유</button>
-          </div>
-        </div>` : posts}
-      ${e.more ? `<button class="btn more-btn" data-action="soc-more"${social.busy ? ' disabled' : ''}>더 보기</button>` : ''}` : ''}`;
-  }
-
-  function searchHtml(e) {
-    return `${subHead('친구 찾기')}
-      <div class="field search-field">
-        ${ICON.search}
-        <input id="soc-search" type="search" placeholder="아이디나 닉네임" value="${esc(e.q || '')}" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search">
-      </div>
-      <div id="search-results"></div>`;
-  }
-
-  function renderSearchResults() {
-    const box = $('#search-results');
-    const e = top();
-    if (!box || e.view !== 'search') return;
-    if (!(e.q || '').trim()) { box.innerHTML = '<p class="crew-empty">친구의 아이디나 닉네임을 입력해 보세요.</p>'; return; }
-    box.innerHTML = (e.users || []).length ? e.users.map(userRow).join('') : '<p class="crew-empty">찾는 사람이 없어요.</p>';
-  }
-
-  function profileHtml(e) {
-    const p = e.profile;
-    if (!p) return `${subHead(`@${esc(e.handle)}`)}${status(e)}`;
-    const grid = (e.posts || []).map(x => `<button class="grid-item" data-action="soc-post" data-id="${esc(x.id)}"><img src="${esc(API_BASE + x.image)}" alt="" loading="lazy" decoding="async"></button>`).join('');
-    return `${subHead(`@${esc(p.handle)}`)}
-      <section class="profile">
-        ${avatar(p.id, p.nickname, ' large')}
-        <div class="profile-main">
-          <h2>${esc(p.nickname)}</h2>
-          <div class="pstats">
-            <div><b class="d">${p.posts}</b><small>오운완</small></div>
-            <button data-action="soc-follows" data-kind="followers" data-handle="${esc(p.handle)}"><b class="d">${p.followers}</b><small>팔로워</small></button>
-            <button data-action="soc-follows" data-kind="following" data-handle="${esc(p.handle)}"><b class="d">${p.following}</b><small>팔로잉</small></button>
-          </div>
-        </div>
-      </section>
-      <p class="pyear">${today().getFullYear()}년 <b class="d">${p.yearDays}</b>일 헬스장 감</p>
-      <div class="profile-actions">
-        ${p.isMe
-          ? `<button class="btn" data-action="soc-share" data-handle="${esc(p.handle)}">프로필 공유</button><button class="btn" data-action="soc-rename">닉네임 바꾸기</button>`
-          : `<button class="btn${p.followed ? '' : ' primary'}" data-action="${p.followed ? 'soc-unfollow' : 'soc-follow'}" data-handle="${esc(p.handle)}">${p.followed ? '팔로잉' : '팔로우'}</button><button class="btn" data-action="soc-share" data-handle="${esc(p.handle)}">공유</button>`}
-      </div>
-      ${grid ? `<div class="grid">${grid}</div>` : `<p class="crew-empty">${p.isMe ? '오운완 사진을 찍을 때 <b>피드에도 올리기</b>를 켜 두면 여기 쌓여요.' : '아직 올린 오운완이 없어요.'}</p>`}
-      ${e.more ? `<button class="btn more-btn" data-action="soc-more"${social.busy ? ' disabled' : ''}>더 보기</button>` : ''}`;
-  }
-
-  function followsHtml(e) {
-    const title = e.kind === 'followers' ? '팔로워' : '팔로잉';
-    const body = e.loaded ? ((e.users || []).length ? e.users.map(userRow).join('') : `<p class="crew-empty">아직 ${title}가 없어요.</p>`) : status(e);
-    return `${subHead(`@${esc(e.handle)} ${title}`)}${body}`;
-  }
-
-  function postViewHtml(e) {
-    return `${subHead('오운완')}${e.post ? postCard(e.post) : status(e)}`;
-  }
-
-  function renderSocial() {
-    const el = views.social;
-    if (!loggedIn()) { el.innerHTML = onboardingHtml(); return; }
-    const e = top();
-    const html = { feed: feedHtml, search: searchHtml, profile: profileHtml, follows: followsHtml, post: postViewHtml }[e.view];
-    el.innerHTML = html(e);
-    if (e.view === 'search') renderSearchResults();
+        <p class="auth-switch">${login ? '처음이에요?' : '이미 아이디가 있어요?'}<button type="button" class="link-btn" data-action="auth-open" data-mode="${login ? 'signup' : 'login'}">${login ? '아이디 만들기' : '로그인'}</button></p>
+      </form>`;
   }
 
   // ---------- rendering ----------
@@ -1805,7 +1588,6 @@
     today: $('#view-today'),
     calendar: $('#view-calendar'),
     stats: $('#view-stats'),
-    social: $('#view-social'),
     settings: $('#view-settings'),
   };
 
@@ -1901,8 +1683,8 @@
         <div class="week">${week}</div>
       </section>
 
-      <div class="section-head"><h2>오늘 한 운동</h2><span class="kicker">Workout</span></div>
-      <div class="tiles">${tiles}</div>
+      <div class="section-head"><h2>오늘 한 운동</h2><span class="hint">꾹 눌러서 수정</span></div>
+      <div class="tiles">${tiles}<button class="tile add-tile" data-action="part-new" aria-label="부위 추가"><span class="add-plus" aria-hidden="true">${ICON.plus}</span><span class="tile-sub">부위 추가</span></button></div>
       ${photoThumbs.has(tk)
         ? `<button class="photo-cta has-photo" data-action="open-day" data-key="${tk}"><img src="${photoThumbs.get(tk)}" alt=""><span>오늘 오운완 보기</span></button>`
         : `<button class="photo-cta${done.size ? '' : ' idle'}" data-action="photo">
@@ -1979,6 +1761,43 @@
       <p class="note">날짜를 누르면 그날 기록을 고칠 수 있어요. 옆으로 밀면 달이 바뀌어요.</p>`;
   }
 
+  function badgeSection() {
+    const s = badgeStats();
+    const timed = timedBadges(s);
+    let earned = 0;
+    let total = 0;
+    const group = (title, list, note = '') => {
+      let got = 0;
+      const items = list.map(b => {
+        const [n, goal] = b.of(s);
+        const on = n >= goal;
+        if (on) got++;
+        let sub = on || goal === 1 ? (b.listDesc || b.desc) : `${n.toLocaleString()} / ${goal.toLocaleString()}`;
+        if (b.current && !on) sub = `이번 달 ${n} / ${goal}`;
+        return `<div class="badge${on ? ' on' : ''}${b.current ? ' current' : ''}">${medal(b, on)}<b>${esc(b.label || b.name)}</b><small>${esc(sub)}</small></div>`;
+      }).join('');
+      earned += got;
+      total += list.length;
+      return `<div class="badge-group">
+          <div class="badge-group-head"><h3>${title}</h3><span><b class="d">${got}</b> / ${list.length}</span></div>
+          ${note ? `<p class="badge-note">${note}</p>` : ''}
+          <div class="badge-row">${items}</div>
+        </div>`;
+    };
+    const monthly = timed.filter(b => b.group === 'monthly').reverse(); // this month first
+    const seasons = [...new Set(timed.filter(b => b.group === 'season').map(b => b.year))].sort((a, b) => b - a);
+    const html = [
+      group('월간 챌린지', monthly, `매달 ${MONTH_GOAL}일 출석하면 그 달 배지를 받아요`),
+      ...seasons.map(y => group(`${y} 시즌`, timed.filter(b => b.group === 'season' && b.year === y))),
+      ...BADGE_GROUPS.map(g => group(g.name, BADGES.filter(b => b.group === g.id))),
+    ].join('');
+    return `<section class="badges">
+        <div class="section-head"><h2>배지 <span class="count">${earned}</span><small>/${total}</small></h2><span class="kicker">All time</span></div>
+        <div class="progress badge-progress"><i style="width:${total ? (earned / total) * 100 : 0}%"></i></div>
+        ${html}
+      </section>`;
+  }
+
   function renderStats() {
     const t = today();
     const curY = t.getFullYear();
@@ -2035,6 +1854,8 @@
         <p class="sub">${sub}</p>
       </section>
 
+      ${badgeSection()}
+
       <section class="block">
         <div class="section-head"><h2>월별 출석</h2><span class="kicker">Monthly</span></div>
         <div class="bars">${bars}</div>
@@ -2047,21 +1868,8 @@
   }
 
   function renderSettings() {
-    if (!ui.newColor) ui.newColor = nextColor();
     const goal = state.weeklyGoal;
     const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-
-    const partRows = state.parts.map(p => `
-      <div class="row">
-        <span class="row-label inline"><i class="bar-mark" style="background:${p.color}"></i>${esc(p.name)}</span>
-        ${BUILTIN_IDS.has(p.id)
-          ? `<span class="tag">${PART_EN[p.id]}</span>`
-          : `<button class="text-btn danger" data-action="delete-part" data-id="${esc(p.id)}">삭제</button>`}
-      </div>`).join('');
-
-    const swatches = CUSTOM_COLORS.map(c =>
-      `<button type="button" class="swatch" style="--c:${c}" data-action="pick-color" data-color="${c}" aria-pressed="${c === ui.newColor}" aria-label="색상 ${c}"></button>`
-    ).join('');
 
     const lastBackup = state.lastBackup ? `마지막 백업 ${fmtDot(new Date(state.lastBackup))}` : '아직 백업한 적 없어요';
 
@@ -2102,23 +1910,11 @@
         </div>
       </div>
 
-      <div class="section-head"><h2>운동 부위</h2><span class="kicker">Parts</span></div>
-      <div class="group">
-        ${partRows}
-        <form class="add-part" data-form="add-part">
-          <div class="row">
-            <input id="new-part" type="text" maxlength="${MAX_NAME}" placeholder="부위 추가 (예: 수영)" enterkeyhint="done" autocomplete="off" aria-label="새 부위 이름">
-            <button class="btn primary" type="submit">추가</button>
-          </div>
-          <div class="swatches" role="group" aria-label="색상 선택">${swatches}</div>
-        </form>
-      </div>
-
-      <div class="section-head"><h2>피드 계정</h2><span class="kicker">Account</span></div>
+      <div class="section-head"><h2>계정</h2><span class="kicker">Account</span></div>
       <div class="group">
         ${loggedIn() ? `
         <div class="row">
-          <span class="row-label">@${esc(state.social.handle)}<small>${esc(state.social.nickname)}</small></span>
+          <span class="row-label">@${esc(state.social.handle)}<small>이 아이디로 기록과 사진이 저장돼요</small></span>
           <button class="btn" data-action="soc-logout">로그아웃</button>
         </div>
         <div class="row">
@@ -2138,10 +1934,13 @@
         <div class="row">
           <span class="row-label">비밀번호 바꾸기<small>잊어버렸어도 로그인된 폰에서는 새로 정할 수 있어요</small></span>
           <button class="btn" data-action="pw-open">바꾸기</button>
-        </div>`}` : `
+        </div>`}` : account.auth ? authFormHtml() : `
         <div class="row">
-          <span class="row-label">로그인 안 됨<small>로그인하면 기록과 사진이 서버에도 자동 저장돼요</small></span>
-          <button class="btn" data-action="soc-goto-login">로그인</button>
+          <span class="row-label">로그인 안 됨<small>로그인하면 기록과 사진이 서버에도 자동 저장돼서, 폰을 바꿔도 그대로예요</small></span>
+        </div>
+        <div class="auth-buttons">
+          <button class="btn" data-action="auth-open" data-mode="login">로그인</button>
+          <button class="btn primary" data-action="auth-open" data-mode="signup">아이디 만들기</button>
         </div>`}
       </div>
 
@@ -2158,7 +1957,7 @@
       </div>
       <p class="note tight">${loggedIn()
         ? '로그인돼 있어서 기록과 오운완 사진이 서버에도 자동 저장돼요. 새 폰에서 로그인하면 그대로 돌아와요. 백업 파일은 따로 보관하고 싶을 때 쓰세요.'
-        : '기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 피드에 로그인하면 서버에도 자동 저장돼요.'}</p>
+        : '기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 위 계정에서 로그인하면 서버에도 자동 저장돼요.'}</p>
 
       ${standalone ? '' : `
       <div class="section-head"><h2>홈 화면에 추가</h2><span class="kicker">Install</span></div>
@@ -2200,7 +1999,7 @@
       <p class="note">${done.size ? `${done.size}개 부위 체크됨` : '이날은 기록이 없어요'}</p>`;
   }
 
-  const RENDER = { today: renderToday, calendar: renderCalendar, stats: renderStats, social: renderSocial, settings: renderSettings };
+  const RENDER = { today: renderToday, calendar: renderCalendar, stats: renderStats, settings: renderSettings };
 
   function renderCurrent() {
     RENDER[ui.tab]();
@@ -2219,7 +2018,6 @@
     });
     if (tab === 'calendar' && !ui.sheetDate) ui.calMonth = firstOfMonth(today());
     renderCurrent();
-    if (tab === 'social') socialHome();
     scroller.scrollTop = 0;
   }
 
@@ -2228,10 +2026,8 @@
   const backdrop = $('#backdrop');
   let sheetTimer = 0;
 
-  function openSheet(key) {
+  function showSheet() {
     clearTimeout(sheetTimer);
-    ui.sheetDate = key;
-    renderSheet();
     sheet.hidden = false;
     backdrop.hidden = false;
     void sheet.offsetHeight; // commit the closed position before animating
@@ -2239,9 +2035,42 @@
     backdrop.classList.add('open');
   }
 
-  function closeSheet() {
-    if (!ui.sheetDate) return;
+  function openSheet(key) {
+    ui.partSheet = null;
+    ui.sheetDate = key;
+    renderSheet();
+    showSheet();
+  }
+
+  // id: the part to edit, or null to add one.
+  function openPartSheet(id) {
+    const p = id ? partById(id) : null;
     ui.sheetDate = null;
+    ui.partSheet = { id: p ? p.id : null, color: p ? p.color : nextColor() };
+    const colors = [...new Set([...DEFAULT_PARTS.map(d => d.color), ...CUSTOM_COLORS, ...(p ? [p.color] : [])].map(c => c.toUpperCase()))];
+    sheet.innerHTML = `
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <div>
+          <p class="kicker">${p ? 'Edit part' : 'New part'}</p>
+          <h2 id="sheet-title">${p ? '부위 수정' : '부위 추가'}</h2>
+        </div>
+        <button class="btn" data-action="close-sheet">취소</button>
+      </div>
+      <form class="part-form" data-form="part-save" novalidate>
+        <div class="field"><input id="part-name" type="text" maxlength="${MAX_NAME}" value="${p ? esc(p.name) : ''}" placeholder="이름 (예: 수영)" enterkeyhint="done" autocomplete="off" aria-label="부위 이름"></div>
+        <div class="swatches" role="group" aria-label="색상">${colors.map(c => `<button type="button" class="swatch" style="--c:${c}" data-action="pick-color" data-color="${c}" aria-pressed="${c === ui.partSheet.color.toUpperCase()}" aria-label="색상 ${c}"></button>`).join('')}</div>
+        <button class="photo-cta" type="submit"><span>${p ? '저장' : '추가'}</span></button>
+        ${p ? `<button type="button" class="btn danger part-delete" data-action="part-delete" data-id="${esc(p.id)}">이 부위 삭제</button>` : ''}
+      </form>`;
+    showSheet();
+    if (!p) requestAnimationFrame(() => { const i = $('#part-name'); if (i) i.focus(); });
+  }
+
+  function closeSheet() {
+    if (!ui.sheetDate && !ui.partSheet) return;
+    ui.sheetDate = null;
+    ui.partSheet = null;
     clearSheetPhoto();
     sheet.classList.remove('open');
     backdrop.classList.remove('open');
@@ -2256,6 +2085,109 @@
     el.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  // ---------- check-in celebration ----------
+  // Comes up a beat after the last tap, so ticking several parts in a row isn't cut off.
+  // The full "N번째 출석" screen shows once a day; new badges show whenever they're earned.
+  const CHEER_KEY = 'gymcheck:cheered';
+  const cheer = { before: null, today: false, timer: 0, closeTimer: 0, queued: [] };
+  const cheerEl = $('#cheer');
+
+  function cheerToggle(key, id) {
+    if (!cheer.before) cheer.before = earnedBadges();
+    if (key === keyOf(today())) cheer.today = true;
+    const on = toggle(key, id);
+    clearTimeout(cheer.timer);
+    cheer.timer = setTimeout(showCheer, 1300);
+    return on;
+  }
+
+  function cheeredToday() {
+    try { return localStorage.getItem(CHEER_KEY) === keyOf(today()); } catch (e) { return false; }
+  }
+
+  function countUp(node, to) {
+    if (to < 2 || matchMedia('(prefers-reduced-motion: reduce)').matches) { node.textContent = to; return; }
+    const start = performance.now();
+    const dur = Math.min(1100, 500 + to * 6);
+    const step = now => {
+      const p = Math.min(1, (now - start) / dur);
+      node.textContent = Math.round(to * (1 - (1 - p) ** 3));
+      if (p < 1 && cheerEl.classList.contains('open')) requestAnimationFrame(step);
+      else node.textContent = to;
+    };
+    node.textContent = 0;
+    requestAnimationFrame(step);
+  }
+
+  function showCheer() {
+    const before = cheer.before || new Set();
+    const touchedToday = cheer.today;
+    cheer.before = null;
+    cheer.today = false;
+    const fresh = newBadges(before);
+    const tk = keyOf(today());
+    const checkIn = touchedToday && attended(tk) && !cheeredToday();
+    if (!checkIn && !fresh.length) return;
+    if (!$('#photo-editor').hidden) { cheer.queued.push(...fresh); return; } // shown when the photo screen closes
+    if (checkIn) { try { localStorage.setItem(CHEER_KEY, tk); } catch (e) { /* shows again later, that's all */ } }
+    openCheer(checkIn, fresh);
+  }
+
+  // Badges earned while the photo screen was open (saving a 오운완 counts toward some).
+  function flushQueuedBadges() {
+    const seen = new Set();
+    const list = cheer.queued.splice(0).filter(b => !seen.has(b.id) && seen.add(b.id));
+    if (list.length) setTimeout(() => openCheer(false, list), 280);
+  }
+
+  function openCheer(checkIn, fresh) {
+    const t = today();
+    const tk = keyOf(t);
+    const y = t.getFullYear();
+    const n = yearStats(y).days;
+    const st = streak(t);
+    const wk = weekCount(t);
+    const goal = state.weeklyGoal;
+    const names = state.parts.filter(p => dayParts(tk).includes(p.id)).map(p => p.name);
+    const meta = [names.join('·'), st > 1 ? `${st}일 연속` : '', `이번 주 ${wk}/${goal}회${wk >= goal ? ' 달성' : ''}`].filter(Boolean);
+    const badgeRows = fresh.map(b => `<div class="cheer-badge">${medal(b, true)}<span class="cheer-badge-text"><b>${esc(b.name)}</b><small>${esc(b.desc)}</small></span></div>`).join('');
+
+    cheerEl.innerHTML = checkIn ? `
+      <div class="cheer-body">
+        <p class="kicker">${y} Season · Day ${n}</p>
+        <div class="cheer-num d">${n}</div>
+        <p class="cheer-title">올해 ${n}번째 출석</p>
+        <p class="cheer-meta">${esc(meta.join(' · '))}</p>
+        ${badgeRows ? `<div class="cheer-badges"><p class="kicker">New badge</p>${badgeRows}</div>` : ''}
+      </div>
+      <div class="cheer-actions">
+        ${photoThumbs.has(tk) ? '' : `<button class="photo-cta" data-action="cheer-photo">${ICON.camera}<span>오운완 찍기</span></button>`}
+        <button class="btn" data-action="cheer-close">닫기</button>
+      </div>` : `
+      <div class="cheer-body solo">
+        <p class="kicker">New badge</p>
+        <div class="cheer-medals">${fresh.map(b => medal(b, true, ' big')).join('')}</div>
+        <p class="cheer-title">${esc(fresh.map(b => b.name).join(' · '))}</p>
+        <p class="cheer-meta">${esc(fresh.map(b => b.desc).join(' · '))}</p>
+      </div>
+      <div class="cheer-actions"><button class="btn primary" data-action="cheer-close">좋아요</button></div>`;
+
+    clearTimeout(cheer.closeTimer);
+    cheerEl.hidden = false;
+    void cheerEl.offsetHeight; // commit the hidden state so the entrance animates
+    cheerEl.classList.add('open');
+    const num = cheerEl.querySelector('.cheer-num');
+    if (num) countUp(num, n);
+    if (navigator.vibrate) navigator.vibrate([12, 60, 18]);
+    cheerEl.querySelector('.cheer-actions .btn').focus({ preventScroll: true });
+  }
+
+  function closeCheer() {
+    if (cheerEl.hidden) return;
+    cheerEl.classList.remove('open');
+    cheer.closeTimer = setTimeout(() => { cheerEl.hidden = true; cheerEl.innerHTML = ''; }, 240);
   }
 
   // ---------- calendar navigation ----------
@@ -2285,6 +2217,40 @@
   });
   views.calendar.addEventListener('pointercancel', () => { swipe = null; });
 
+  // ---------- long-press a part tile → edit it ----------
+  let hold = null;
+  const endHold = () => {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    hold.el.classList.remove('holding');
+    hold = null;
+  };
+  views.today.addEventListener('pointerdown', e => {
+    const el = e.target.closest('.tile[data-action="toggle-today"]');
+    if (!el || e.button > 0) return;
+    endHold();
+    hold = { el, x: e.clientX, y: e.clientY };
+    el.classList.add('holding');
+    hold.timer = setTimeout(() => {
+      const id = el.dataset.id;
+      endHold();
+      suppressClickUntil = Date.now() + 700;
+      if (navigator.vibrate) navigator.vibrate(12);
+      openPartSheet(id);
+    }, 480);
+  });
+  views.today.addEventListener('pointermove', e => {
+    if (hold && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 10) endHold();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => views.today.addEventListener(t, endHold));
+  views.today.addEventListener('contextmenu', e => {
+    const el = e.target.closest('.tile[data-action="toggle-today"]');
+    if (!el) return;
+    e.preventDefault();
+    endHold();
+    openPartSheet(el.dataset.id);
+  });
+
   // ---------- events ----------
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-action]');
@@ -2296,12 +2262,20 @@
         setTab(el.dataset.tab);
         break;
       case 'toggle-today':
-        ui.popId = toggle(keyOf(today()), id) ? id : null;
+        if (Date.now() < suppressClickUntil) return; // the tap that ended a long-press
+        ui.popId = cheerToggle(keyOf(today()), id) ? id : null;
         renderCurrent();
         break;
       case 'toggle-day':
-        ui.popId = toggle(ui.sheetDate, id) ? id : null;
+        ui.popId = cheerToggle(ui.sheetDate, id) ? id : null;
         renderCurrent();
+        break;
+      case 'cheer-close':
+        closeCheer();
+        break;
+      case 'cheer-photo':
+        closeCheer();
+        startPhoto();
         break;
       case 'open-day':
         if (Date.now() < suppressClickUntil) return;
@@ -2321,10 +2295,11 @@
       case 'goal-dec': setGoal(-1); break;
       case 'goal-inc': setGoal(1); break;
       case 'pick-color':
-        ui.newColor = el.dataset.color;
+        if (ui.partSheet) ui.partSheet.color = el.dataset.color;
         document.querySelectorAll('.swatch').forEach(s => s.setAttribute('aria-pressed', String(s === el)));
         break;
-      case 'delete-part': deletePart(id); break;
+      case 'part-new': openPartSheet(null); break;
+      case 'part-delete': deletePart(id); break;
       case 'export':
         if (ui.tab !== 'settings') setTab('settings');
         prepareExport();
@@ -2332,14 +2307,16 @@
       case 'export-share': shareExport(); break;
       case 'photo-format': pickFormat(el.dataset.format); break;
       case 'recap': openRecap(); break;
-      case 'soc-mode':
-        social.mode = el.dataset.mode === 'login' ? 'login' : 'signup';
-        social.form.password = '';
-        renderSocial();
+      case 'auth-open':
+        account.auth = el.dataset.mode === 'login' ? 'login' : 'signup';
+        account.form.password = '';
+        renderCurrent();
+        requestAnimationFrame(() => { const i = $(account.form.handle ? '#soc-password' : '#soc-handle'); if (i) i.focus(); });
         break;
-      case 'soc-goto-login':
-        social.mode = 'login';
-        setTab('social');
+      case 'auth-cancel':
+        account.auth = null;
+        account.form = { handle: '', password: '' };
+        renderCurrent();
         break;
       case 'soc-logout': logOut(); break;
       case 'cloud-sync': manualCloudSync(); break;
@@ -2352,23 +2329,6 @@
         ui.pwForm = false;
         renderCurrent();
         break;
-      case 'soc-search': socialPush({ view: 'search', q: '', users: [] }); break;
-      case 'soc-profile': openProfile(el.dataset.handle); break;
-      case 'soc-follows': socialPush({ view: 'follows', handle: el.dataset.handle, kind: el.dataset.kind }); break;
-      case 'soc-post': {
-        const found = (top().posts || []).find(p => p.id === id);
-        socialPush({ view: 'post', id, post: found || null });
-        break;
-      }
-      case 'soc-back': socialBack(); break;
-      case 'soc-retry': loadEntry(top()); break;
-      case 'soc-more': loadMore(); break;
-      case 'soc-follow': toggleFollow(el.dataset.handle, true); break;
-      case 'soc-unfollow': toggleFollow(el.dataset.handle, false); break;
-      case 'soc-share': shareProfile(el.dataset.handle); break;
-      case 'soc-rename': renameMe(); break;
-      case 'post-fire': firePost(id); break;
-      case 'post-delete': deletePost(id); break;
       case 'import': $('#import-file').click(); break;
       case 'update': manualUpdate(); break;
       case 'photo': startPhoto(); break;
@@ -2391,9 +2351,9 @@
   });
 
   document.addEventListener('submit', e => {
-    if (e.target.matches('[data-form="add-part"]')) {
+    if (e.target.matches('[data-form="part-save"]')) {
       e.preventDefault();
-      addPart();
+      savePart();
     } else if (e.target.matches('[data-form="soc-auth"]')) {
       e.preventDefault();
       submitAuth();
@@ -2409,14 +2369,8 @@
     if (file) importData(file);
   });
 
-  $('#photo-crew').addEventListener('change', e => {
-    if (!state.social) return;
-    state.social.autoPost = e.target.checked;
-    save();
-  });
-
   // Account forms: Enter moves to the next field; Enter in the last one submits.
-  const NEXT_FIELD = { 'soc-handle': ['#soc-nickname', '#soc-password'], 'soc-nickname': ['#soc-password'], 'pw-new': ['#pw-again'] };
+  const NEXT_FIELD = { 'soc-handle': ['#soc-password'], 'pw-new': ['#pw-again'] };
   document.addEventListener('keydown', e => {
     if (e.key !== 'Enter' || e.isComposing || !NEXT_FIELD[e.target.id]) return;
     const next = NEXT_FIELD[e.target.id].map(s => $(s)).find(Boolean);
@@ -2425,10 +2379,8 @@
     next.focus();
   });
   document.addEventListener('input', e => {
-    if (e.target.id === 'soc-search') searchInput(e.target.value);
-    else if (e.target.id === 'soc-handle') social.form.handle = e.target.value = e.target.value.toLowerCase().replace(/\s/g, '');
-    else if (e.target.id === 'soc-nickname') social.form.nickname = e.target.value;
-    else if (e.target.id === 'soc-password') social.form.password = e.target.value;
+    if (e.target.id === 'soc-handle') account.form.handle = e.target.value = e.target.value.toLowerCase().replace(/\s/g, '');
+    else if (e.target.id === 'soc-password') account.form.password = e.target.value;
   });
 
   $('#photo-input').addEventListener('change', e => {
@@ -2516,7 +2468,6 @@
     if (document.visibilityState !== 'visible') return;
     renderCurrent();
     checkForUpdate();
-    if (ui.tab === 'social') loadEntry(top(), { quiet: true });
   });
 
   // If the app is left open on screen, roll over to the new day right after midnight.
@@ -2529,15 +2480,9 @@
 
 
   // ---------- boot ----------
-  const linkedHandle = new URLSearchParams(location.search).get('u');
-  if (linkedHandle) history.replaceState(null, '', location.pathname);
+  // Old profile links (?u=handle) from the feed days just open the app.
+  if (location.search) history.replaceState(null, '', location.pathname);
   renderCurrent();
-  if (linkedHandle) {
-    const h = linkedHandle.toLowerCase().replace(/^@/, '');
-    setTab('social');
-    if (loggedIn()) openProfile(h);
-    else { social.pendingHandle = h; renderSocial(); }
-  }
   loadPhotoThumbs();
   scheduleMidnightRefresh();
   setTimeout(checkForUpdate, 800);
