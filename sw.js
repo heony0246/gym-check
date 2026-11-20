@@ -1,6 +1,10 @@
-// Offline support: answer from cache right away (gyms often have bad signal),
-// then refresh the cache from the network in the background.
-const CACHE = 'gym-check-v2';
+// Offline support.
+// App files: network first (bypassing the HTTP cache) so a new release shows up the
+// next time the app opens; if the network is slow (gym basements) or gone, fall back
+// to the saved copy after a few seconds.
+// Web fonts: cache first, they never change.
+const CACHE = 'gym-check-v3';
+const NETWORK_TIMEOUT_MS = 3000;
 const ASSETS = [
   './',
   './index.html',
@@ -11,11 +15,12 @@ const ASSETS = [
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
 ];
-// Web fonts (Barlow Condensed, Pretendard) are cached the same way once loaded.
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  event.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(url => new Request(url, { cache: 'reload' }))))
+  );
   self.skipWaiting();
 });
 
@@ -31,22 +36,50 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  const sameOrigin = url.origin === self.location.origin;
-  if (!sameOrigin && !FONT_HOSTS.includes(url.hostname)) return;
 
-  const network = fetch(req)
-    .then(res => {
-      if (!res.ok) return res;
-      const copy = res.clone();
-      return caches.open(CACHE).then(cache => cache.put(req, copy)).then(() => res);
-    })
-    .catch(() => null);
-  event.waitUntil(network);
-
-  event.respondWith(
-    caches.match(req, { ignoreSearch: sameOrigin })
-      .then(cached => cached || network)
-      .then(res => res || (req.mode === 'navigate' ? caches.match('./index.html') : null))
-      .then(res => res || Response.error())
-  );
+  if (url.origin === self.location.origin) {
+    if (url.pathname.endsWith('/version.json')) return; // always straight from the server
+    event.respondWith(networkFirst(event));
+  } else if (FONT_HOSTS.includes(url.hostname)) {
+    event.respondWith(cacheFirst(req));
+  }
 });
+
+// Safari refuses redirected responses for navigations; hand back a clean copy.
+function clean(res) {
+  if (!res.redirected) return res;
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
+async function networkFirst(event) {
+  const req = event.request;
+  const cache = await caches.open(CACHE);
+  const network = fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
+    if (res.ok) {
+      const copy = clean(res.clone());
+      return cache.put(req, copy).then(() => res);
+    }
+    return res;
+  });
+  event.waitUntil(network.catch(() => {}));
+
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), NETWORK_TIMEOUT_MS));
+    return clean(await Promise.race([network, timeout]));
+  } catch (e) {
+    const cached = (await cache.match(req, { ignoreSearch: true }))
+      || (req.mode === 'navigate' ? await cache.match('./index.html') : undefined);
+    if (cached) return cached;
+    // Nothing saved yet: keep waiting for the network.
+    return network.then(clean).catch(() => Response.error());
+  }
+}
+
+async function cacheFirst(req) {
+  const cache = await caches.open(CACHE);
+  const hit = await cache.match(req);
+  if (hit) return hit;
+  const res = await fetch(req);
+  if (res.ok) await cache.put(req, res.clone());
+  return res;
+}

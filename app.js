@@ -19,6 +19,9 @@
   const WEEKDAYS_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
+  // Bump together with version.json on every release so phones notice the update.
+  const APP_VERSION = '1.1.0';
+  const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -121,6 +124,8 @@
     sheetDate: null,
     newColor: null,
     popId: null,
+    latestVersion: null,
+    updating: false,
   };
 
   // ---------- queries ----------
@@ -316,7 +321,8 @@
       const k = keyOf(d);
       const on = attended(k);
       const cls = ['wk', on && 'on', k === tk && 'today', d > t && 'future'].filter(Boolean).join(' ');
-      return `<div class="${cls}"><span class="wk-label">${WEEKDAYS[d.getDay()]}</span><span class="wk-dot">${on ? ICON.check : d.getDate()}</span></div>`;
+      return `<button class="${cls}" data-action="open-day" data-key="${k}"${d > t ? ' disabled' : ''} aria-label="${d.getMonth() + 1}월 ${d.getDate()}일${on ? ', 운동함' : ''}">
+        <span class="wk-label">${WEEKDAYS[d.getDay()]}</span><span class="wk-dot">${on ? ICON.check : d.getDate()}</span></button>`;
     }).join('');
 
     const tiles = state.parts.map(p => {
@@ -341,6 +347,8 @@
         </div>
       </header>
 
+      ${hasUpdate() ? `<div class="banner update"><span>새 버전 v${esc(ui.latestVersion)}이 나왔어요</span><button class="btn small primary" data-action="apply-update">업데이트</button></div>` : ''}
+
       <section class="hero">
         <div class="hero-top">
           <div>
@@ -353,7 +361,7 @@
           </div>
         </div>
         <div class="week-head">
-          <span>이번 주</span>
+          <span>이번 주 <small>지난 날도 눌러서 체크</small></span>
           <span class="${met ? 'met' : ''}"><b>${wk}</b> / ${goal}회${met ? ' · 목표 달성' : ''}</span>
         </div>
         <div class="week">${week}</div>
@@ -518,6 +526,14 @@
 
     views.settings.innerHTML = `
       <header class="head"><div><p class="kicker">Settings</p><h1>설정</h1></div></header>
+
+      <div class="section-head"><h2>앱 업데이트</h2><span class="kicker">v${APP_VERSION}</span></div>
+      <div class="group">
+        <div class="row">
+          <span class="row-label">${hasUpdate() ? `새 버전 v${esc(ui.latestVersion)} 나왔어요` : `지금 버전 v${APP_VERSION}`}<small>업데이트해도 기록은 그대로예요</small></span>
+          <button class="btn${hasUpdate() ? ' primary' : ''}" data-action="update"${ui.updating ? ' disabled' : ''}>${hasUpdate() ? '업데이트' : '업데이트 확인'}</button>
+        </div>
+      </div>
 
       <div class="section-head"><h2>주간 목표</h2><span class="kicker">Goal</span></div>
       <div class="group">
@@ -707,6 +723,8 @@
       case 'delete-part': deletePart(id); break;
       case 'export': exportData(); break;
       case 'import': $('#import-file').click(); break;
+      case 'update': manualUpdate(); break;
+      case 'apply-update': applyUpdate(); break;
     }
   });
 
@@ -727,18 +745,82 @@
     if (e.key === 'Escape') closeSheet();
   });
 
+  // ---------- app updates ----------
+  const hasUpdate = () => Boolean(ui.latestVersion && ui.latestVersion !== APP_VERSION);
+
+  // Returns the version on the server, or null when offline.
+  async function fetchLatestVersion() {
+    try {
+      const res = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return null;
+      const { version } = await res.json();
+      return typeof version === 'string' ? version : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  let lastCheck = 0;
+  async function checkForUpdate() {
+    if (Date.now() - lastCheck < 60_000) return;
+    lastCheck = Date.now();
+    const latest = await fetchLatestVersion();
+    if (!latest || latest === ui.latestVersion) return;
+    ui.latestVersion = latest;
+    if (hasUpdate() && (ui.tab === 'today' || ui.tab === 'settings')) renderCurrent();
+  }
+
+  // Throws away the offline copy and reloads, so the newest files come from the server.
+  // Records live in localStorage and are not touched.
+  async function applyUpdate() {
+    if (ui.updating) return;
+    ui.updating = true;
+    toast('최신 버전으로 바꾸는 중…');
+    try {
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.update().catch(() => {});
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter(k => k.startsWith(CACHE_PREFIX)).map(k => caches.delete(k)));
+      }
+    } catch (e) { /* reload anyway */ }
+    location.reload();
+  }
+
+  async function manualUpdate() {
+    if (ui.updating) return;
+    const latest = await fetchLatestVersion();
+    if (!latest) { toast('인터넷 연결을 확인해 주세요'); return; }
+    ui.latestVersion = latest;
+    if (hasUpdate()) applyUpdate();
+    else { toast(`이미 최신 버전이에요 (v${APP_VERSION})`); renderCurrent(); }
+  }
+
   // The app may stay open past midnight; refresh dates when it comes back.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') renderCurrent();
+    if (document.visibilityState !== 'visible') return;
+    renderCurrent();
+    checkForUpdate();
   });
+
+  // If the app is left open on screen, roll over to the new day right after midnight.
+  function scheduleMidnightRefresh() {
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+    setTimeout(() => { renderCurrent(); scheduleMidnightRefresh(); }, next - now);
+  }
 
   // ---------- boot ----------
   renderCurrent();
+  scheduleMidnightRefresh();
+  setTimeout(checkForUpdate, 800);
 
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
   const isLocalDev = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
   if ('serviceWorker' in navigator && !isLocalDev) {
-    addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {});
+    });
   }
 })();
