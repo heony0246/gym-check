@@ -60,6 +60,13 @@ nonisolated struct Account: Codable, Equatable, Sendable {
   var crewWins: Int?
 }
 
+/// Whose records are on this phone: set on login and kept after logout, so logging in
+/// as someone else swaps them out instead of merging them into that account.
+nonisolated struct Owner: Codable, Equatable, Sendable {
+  var id: String
+  var handle: String
+}
+
 nonisolated struct CloudMeta: Codable, Equatable, Sendable {
   /// The server's `updatedAt` of the backup this phone last matched.
   var syncedAt: Double = 0
@@ -72,6 +79,7 @@ nonisolated struct LocalState: Codable, Sendable {
   var data = AppData()
   var account: Account?
   var cloud = CloudMeta()
+  var owner: Owner?
 }
 
 extension Part {

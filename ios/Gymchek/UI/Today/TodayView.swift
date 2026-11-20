@@ -4,6 +4,16 @@ import SwiftUI
 struct TodayView: View {
   @Environment(Store.self) private var store
   @State private var popped: String?
+  @State private var route: ExerciseRoute?
+  @State private var editingPart: EditPart?
+  @State private var cheer: CheerContent?
+  @State private var cheerTask: Task<Void, Never>?
+  @State private var badgesBefore: Set<String>?
+  @State private var shooting = false
+  @State private var shootAfterCheer = false
+  @State private var viewingDay: CalendarView.DayKey?
+
+  struct EditPart: Identifiable { let id: String; let partId: String? }
 
   private var today: Date { Day.today() }
   private var todayKey: String { Day.key(today) }
@@ -18,6 +28,10 @@ struct TodayView: View {
         SectionHead(title: "오늘 한 운동", trailing: "꾹 눌러서 수정")
           .padding(.bottom, 12)
         tiles
+        LogBlock(date: todayKey, route: $route)
+          .padding(.top, 10)
+        photoButton
+          .padding(.top, 10)
       }
       .padding(.horizontal, 18)
       .padding(.top, 12)
@@ -25,6 +39,80 @@ struct TodayView: View {
     }
     .background(Color.bg)
     .sensoryFeedback(.impact(weight: .light), trigger: popped)
+    .sheet(item: $route) { ExerciseSheet(route: $0) }
+    .sheet(item: $editingPart) { PartEditor(partId: $0.partId) }
+    // The camera opens once the celebration has finished closing (two covers can't overlap).
+    .fullScreenCover(item: $cheer, onDismiss: {
+      if shootAfterCheer { shootAfterCheer = false; shooting = true }
+    }) { CelebrationView(content: $0) { shootAfterCheer = true } }
+    .fullScreenCover(isPresented: $shooting) { CameraView(date: todayKey) }
+    .sheet(item: $viewingDay) { DaySheet(date: $0.id) }
+  }
+
+  // MARK: 오운완
+
+  /// Today's 오운완: open the camera, or (once saved) the day with its photo.
+  @ViewBuilder private var photoButton: some View {
+    let done = store.data.parts.filter { store.parts(on: todayKey).contains($0.id) }
+    if store.photoKeys.contains(todayKey) {
+      Button { viewingDay = CalendarView.DayKey(id: todayKey) } label: {
+        HStack(spacing: 12) {
+          DayThumb(key: todayKey).frame(width: 40, height: 40).clipShape(.rect(cornerRadius: 10))
+          Text("오늘 오운완 보기").font(.system(size: 16, weight: .heavy))
+          Spacer()
+          Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.faint)
+        }
+        .foregroundStyle(Color.ink)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 60)
+        .background(Color.surface, in: .rect(cornerRadius: 16))
+      }
+      .buttonStyle(PressScale(scale: 0.98))
+    } else {
+      Button { shooting = true } label: {
+        Label(done.isEmpty ? "운동 체크하고 오운완 찍기" : "\(CardInfo.headline(done)) 오운완 찍기", systemImage: "camera.fill")
+          .font(.system(size: 16, weight: .heavy))
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+          .foregroundStyle(done.isEmpty ? Color.muted : Color.onVolt)
+          .frame(maxWidth: .infinity, minHeight: 56)
+          .background(done.isEmpty ? Color.surface : Color.volt, in: .rect(cornerRadius: 16))
+      }
+      .buttonStyle(PressScale(scale: 0.98))
+    }
+  }
+
+  // MARK: Celebration
+  // A beat after the last tap (so ticking several parts isn't cut off): the day's
+  // first check-in gets "올해 N번째 출석", new badges show whenever they're earned.
+
+  private static let cheeredKey = "cheeredDay"
+
+  private func noteToggle() {
+    if badgesBefore == nil { badgesBefore = Badges.earned(store.badgeStats) }
+    cheerTask?.cancel()
+    cheerTask = Task {
+      try? await Task.sleep(for: .seconds(1.3))
+      guard !Task.isCancelled else { return }
+      showCheer()
+    }
+  }
+
+  private func showCheer() {
+    let before = badgesBefore ?? []
+    badgesBefore = nil
+    let stats = store.badgeStats
+    let fresh = Badges.all(stats).filter { $0.earned(stats) && !before.contains($0.id) }
+    let checkIn = store.attended(todayKey) && UserDefaults.standard.string(forKey: Self.cheeredKey) != todayKey
+    guard checkIn || !fresh.isEmpty else { return }
+    if checkIn { UserDefaults.standard.set(todayKey, forKey: Self.cheeredKey) }
+    let year = Day.calendar.component(.year, from: today)
+    let names = store.data.parts.filter { store.parts(on: todayKey).contains($0.id) }.map(\.name).joined(separator: "·")
+    let streak = store.streak(today: today)
+    let week = store.weekCount(today: today)
+    let goal = store.data.weeklyGoal
+    let meta = [names, streak > 1 ? "\(streak)일 연속" : "", "이번 주 \(week)/\(goal)회" + (week >= goal ? " 달성" : "")].filter { !$0.isEmpty }.joined(separator: " · ")
+    cheer = CheerContent(dayCount: checkIn ? store.yearDays(year) : nil, meta: meta, badges: fresh)
   }
 
   // MARK: Header
@@ -98,11 +186,23 @@ struct TodayView: View {
         let on = done.contains(part.id)
         PartTile(part: part, on: on, label: label(for: part, on: on, last: last[part.id]), stale: isStale(last[part.id]) && !on)
           .onTapGesture {
+            noteToggle()
             withAnimation(.easeOut(duration: 0.2)) {
               popped = store.toggle(part.id, on: todayKey) ? part.id : nil
             }
           }
+          .onLongPressGesture(minimumDuration: 0.45) { editingPart = EditPart(id: part.id, partId: part.id) }
       }
+      Button { editingPart = EditPart(id: "new", partId: nil) } label: {
+        VStack(spacing: 8) {
+          Image(systemName: "plus").font(.system(size: 24, weight: .semibold))
+          Text("부위 추가").font(.system(size: 12, weight: .semibold))
+        }
+        .foregroundStyle(Color.muted)
+        .frame(maxWidth: .infinity, minHeight: 112)
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.lineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+      }
+      .buttonStyle(PressScale())
     }
   }
 
@@ -127,11 +227,10 @@ struct PartTile: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      HStack(spacing: 5) {
-        RoundedRectangle(cornerRadius: 1.5).fill(Color(css: part.color)).frame(width: 3, height: 11)
-        Text(part.englishTag).font(.kicker(11)).tracking(1.2)
-          .foregroundStyle(on ? Color.onVolt.opacity(0.62) : Color.muted)
-      }
+      // The part's color lives in its English tag (no marker bar).
+      Text(part.englishTag).font(.kicker(11)).tracking(1.2)
+        .foregroundStyle(on ? Color.onVolt.opacity(0.62) : Color(css: part.color))
+        .frame(minHeight: 13, alignment: .leading)
       Text(part.name)
         .font(.system(size: 22, weight: .heavy))
         .tracking(-0.6)

@@ -15,6 +15,8 @@ extension Color {
   static let onVolt = Color(hex: 0x0A0A0B)
   static let warn = Color(hex: 0xFF9447)
   static let danger = Color(hex: 0xFF5F5F)
+  static let sat = Color(hex: 0x7FB2FF)
+  static let sun = Color(hex: 0xFF7B7B)
 
   init(hex: UInt32) {
     self.init(red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255)

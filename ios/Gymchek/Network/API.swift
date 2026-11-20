@@ -8,17 +8,30 @@ nonisolated struct APIError: LocalizedError, Sendable {
 
 /// The same server the web app uses.
 nonisolated enum API {
-  static let base = URL(string: "https://gymchek-api.savetoyou365.workers.dev")!
+  static let base: URL = {
+    #if DEBUG
+    // Testing against a local worker: defaults write kr.gymchek.app apiBase http://localhost:8787
+    if let s = UserDefaults.standard.string(forKey: "apiBase"), let url = URL(string: s) { return url }
+    #endif
+    return URL(string: "https://gymchek-api.savetoyou365.workers.dev")!
+  }()
 
-  /// Sends a request and returns the raw body. `json` is encoded as the request body.
-  static func send(_ path: String, method: String = "GET", json: [String: Any]? = nil, token: String?) async throws -> Data {
-    var request = URLRequest(url: base.appending(path: path))
+  /// Sends a request and returns the raw body. `json` is encoded as the request body;
+  /// `body` + `contentType` send anything else (a photo, a form).
+  static func send(_ path: String, method: String = "GET", json: [String: Any]? = nil,
+                   body: Data? = nil, contentType: String? = nil, token: String?) async throws -> Data {
+    // Paths may carry a query (?from=…), so they're appended as text, not as a path component.
+    guard let url = URL(string: base.absoluteString + path) else { throw APIError(status: 0, message: "주소가 잘못됐어요") }
+    var request = URLRequest(url: url)
     request.httpMethod = method
-    request.timeoutInterval = 20
+    request.timeoutInterval = body == nil ? 20 : 60
     if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
     if let json {
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       request.httpBody = try JSONSerialization.data(withJSONObject: json)
+    } else if let body {
+      request.setValue(contentType, forHTTPHeaderField: "Content-Type")
+      request.httpBody = body
     }
     let data: Data
     let response: URLResponse
@@ -38,6 +51,19 @@ nonisolated enum API {
   static func decode<T: Decodable>(_ type: T.Type, _ path: String, method: String = "GET", json: [String: Any]? = nil, token: String?) async throws -> T {
     let data = try await send(path, method: method, json: json, token: token)
     return try JSONDecoder().decode(T.self, from: data)
+  }
+
+  /// multipart/form-data with text fields and one JPEG named "image".
+  static func form(fields: [String: String], image: Data, filename: String) -> (Data, String) {
+    let boundary = "gymchek-\(UUID().uuidString)"
+    var out = Data()
+    for (k, v) in fields {
+      out.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(k)\"\r\n\r\n\(v)\r\n".utf8))
+    }
+    out.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"image\"; filename=\"\(filename)\"\r\nContent-Type: image/jpeg\r\n\r\n".utf8))
+    out.append(image)
+    out.append(Data("\r\n--\(boundary)--\r\n".utf8))
+    return (out, "multipart/form-data; boundary=\(boundary)")
   }
 
   private struct ErrorBody: Decodable { let error: String }
@@ -63,4 +89,12 @@ nonisolated struct BackupResponse: Decodable, Sendable {
 
 nonisolated struct PushResponse: Decodable, Sendable {
   let updatedAt: Double
+}
+
+nonisolated struct MeResponse: Decodable, Sendable {
+  let passwordSet: Bool?
+}
+
+nonisolated struct SessionsResponse: Decodable, Sendable {
+  let endedSessions: Int
 }

@@ -33,6 +33,9 @@ targets:
         NSCameraUsageDescription: 오운완 사진을 찍을 때 카메라를 써요
         NSPhotoLibraryUsageDescription: 오운완 사진을 고를 때 사진첩을 써요
         NSPhotoLibraryAddUsageDescription: 오운완 카드를 사진첩에 저장해요
+        # Debug builds can talk to a server on this Mac (see API.base).
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: kr.gymchek.app

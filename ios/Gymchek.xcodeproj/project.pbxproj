@@ -8,27 +8,59 @@
 
 /* Begin PBXBuildFile section */
 		0517E90836F3A0E24D7A1381 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE13D02149505464FD85B518 /* Models.swift */; };
+		0E9281C27CCE51CE0E947928 /* CrewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16C0586843095D4A24CCB570 /* CrewView.swift */; };
+		19864423289A4497E352916D /* Crew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A982CABCE4BFA41403908E /* Crew.swift */; };
+		2A564D2DDC67E234ED92408E /* Badges.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7965C153899DE01470401227 /* Badges.swift */; };
 		38867006AA01DB6A4D8F2F4C /* Day.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6A2BF6BBA2FEB6A95B7807 /* Day.swift */; };
+		4EA1911522C57BC7AA045785 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = D131AE0E1222E7232EA70973 /* Camera.swift */; };
 		57227C0A2BFDA90305566439 /* GymchekApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAF8ABD58235D6D56C8246D /* GymchekApp.swift */; };
+		5EBA72609CAFBF5879FFB1C2 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 067119BB79712EBB4F07FBEE /* CalendarView.swift */; };
+		5ED18ABD3CADC33CB1868A66 /* SwipeRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C78095F3D7D19801A5365E6 /* SwipeRow.swift */; };
+		66A381B7654545E54C54FA04 /* ExerciseViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A115A7F89C4C925061CC59B /* ExerciseViews.swift */; };
+		6D67CCE2C0561B0A92BE9E3B /* PartEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7DF947406CA5AAD9754BB8A /* PartEditor.swift */; };
+		7B373F10E469DF93319839A7 /* PhotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E1CEE8EF742D4B34A04213 /* PhotoStore.swift */; };
+		7EB4C8B8A59E8204F8A30501 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 934DEAABECAB29F1EE35CE76 /* StatsView.swift */; };
+		801011C1B37975466952D900 /* Celebration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0195221545DA4EC7BE63CC /* Celebration.swift */; };
 		8308902828761C9B03D16B7E /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98BF0E312B76C558259F3DF /* API.swift */; };
 		8AD7DEA0D559855F35A20AE3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B91A88BAD803023EC76CF33D /* Assets.xcassets */; };
 		AB1B104D30257B4A555D3F0C /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AD3E0BEBC7EE2BB30071BB /* Store.swift */; };
+		ACCE50CEBA219675A579054C /* MedalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 529EDEB6788DEB5ED9704B48 /* MedalView.swift */; };
+		C0BE54191D49EC12A2B28C72 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36A1DAD9CC81107E5519D33F /* CameraView.swift */; };
 		C3B507B268BA5A357174C935 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670755DD2D800F65365E0DCA /* Theme.swift */; };
 		CEC6E94E03F9FB57FDFB0D42 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 596F32FBC2D836FC62A6E3A4 /* TodayView.swift */; };
+		E86318C11EB8A5A8F4196290 /* Catalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28AF3DF92BAB521835B1D9D2 /* Catalog.swift */; };
+		F8EE9F5AD2149A9B074FB449 /* Card.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D48505D6312CFAE822527F7 /* Card.swift */; };
 		FB62090B39182AFDDC7537E1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E9FA6DAB9B2E1FAB01EE377 /* SettingsView.swift */; };
+		FFDE0C8D138FE3DA5E1D874E /* catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = 2D0E599A6B7B48A877412677 /* catalog.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		067119BB79712EBB4F07FBEE /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
+		16C0586843095D4A24CCB570 /* CrewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrewView.swift; sourceTree = "<group>"; };
+		21E1CEE8EF742D4B34A04213 /* PhotoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoStore.swift; sourceTree = "<group>"; };
+		28AF3DF92BAB521835B1D9D2 /* Catalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Catalog.swift; sourceTree = "<group>"; };
+		2D0E599A6B7B48A877412677 /* catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = catalog.json; sourceTree = "<group>"; };
+		36A1DAD9CC81107E5519D33F /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
+		529EDEB6788DEB5ED9704B48 /* MedalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedalView.swift; sourceTree = "<group>"; };
 		596F32FBC2D836FC62A6E3A4 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		670755DD2D800F65365E0DCA /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		7965C153899DE01470401227 /* Badges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Badges.swift; sourceTree = "<group>"; };
+		7B0195221545DA4EC7BE63CC /* Celebration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Celebration.swift; sourceTree = "<group>"; };
+		8A115A7F89C4C925061CC59B /* ExerciseViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseViews.swift; sourceTree = "<group>"; };
+		8C78095F3D7D19801A5365E6 /* SwipeRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeRow.swift; sourceTree = "<group>"; };
+		92A982CABCE4BFA41403908E /* Crew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crew.swift; sourceTree = "<group>"; };
+		934DEAABECAB29F1EE35CE76 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		93697371738F23405E522B28 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9D48505D6312CFAE822527F7 /* Card.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Card.swift; sourceTree = "<group>"; };
 		9E9FA6DAB9B2E1FAB01EE377 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A98BF0E312B76C558259F3DF /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
 		AF9EFF60FA1D2B796EA08974 /* Gymchek.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Gymchek.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B91A88BAD803023EC76CF33D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BA6A2BF6BBA2FEB6A95B7807 /* Day.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day.swift; sourceTree = "<group>"; };
 		C5AD3E0BEBC7EE2BB30071BB /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
+		D131AE0E1222E7232EA70973 /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
 		DDAF8ABD58235D6D56C8246D /* GymchekApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymchekApp.swift; sourceTree = "<group>"; };
+		E7DF947406CA5AAD9754BB8A /* PartEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartEditor.swift; sourceTree = "<group>"; };
 		EE13D02149505464FD85B518 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -36,6 +68,8 @@
 		031A287959970135D3925152 /* Today */ = {
 			isa = PBXGroup;
 			children = (
+				7B0195221545DA4EC7BE63CC /* Celebration.swift */,
+				E7DF947406CA5AAD9754BB8A /* PartEditor.swift */,
 				596F32FBC2D836FC62A6E3A4 /* TodayView.swift */,
 			);
 			path = Today;
@@ -44,18 +78,55 @@
 		0331BF9617EDCBE49983577A /* Model */ = {
 			isa = PBXGroup;
 			children = (
+				7965C153899DE01470401227 /* Badges.swift */,
+				28AF3DF92BAB521835B1D9D2 /* Catalog.swift */,
+				92A982CABCE4BFA41403908E /* Crew.swift */,
 				BA6A2BF6BBA2FEB6A95B7807 /* Day.swift */,
 				EE13D02149505464FD85B518 /* Models.swift */,
+				21E1CEE8EF742D4B34A04213 /* PhotoStore.swift */,
 				C5AD3E0BEBC7EE2BB30071BB /* Store.swift */,
 			);
 			path = Model;
 			sourceTree = "<group>";
 		};
+		067CD4913BA4FE9EADD99251 /* Badges */ = {
+			isa = PBXGroup;
+			children = (
+				529EDEB6788DEB5ED9704B48 /* MedalView.swift */,
+			);
+			path = Badges;
+			sourceTree = "<group>";
+		};
+		0C866490D6F9E5586889DB0D /* Photo */ = {
+			isa = PBXGroup;
+			children = (
+				D131AE0E1222E7232EA70973 /* Camera.swift */,
+				36A1DAD9CC81107E5519D33F /* CameraView.swift */,
+				9D48505D6312CFAE822527F7 /* Card.swift */,
+			);
+			path = Photo;
+			sourceTree = "<group>";
+		};
+		16C343F6054D7777D935A3C1 /* Exercise */ = {
+			isa = PBXGroup;
+			children = (
+				8A115A7F89C4C925061CC59B /* ExerciseViews.swift */,
+			);
+			path = Exercise;
+			sourceTree = "<group>";
+		};
 		17EC62FFE5D74AE141BA4D11 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				8C78095F3D7D19801A5365E6 /* SwipeRow.swift */,
 				670755DD2D800F65365E0DCA /* Theme.swift */,
+				067CD4913BA4FE9EADD99251 /* Badges */,
+				8F6E24B7E63C6ED10AEBE0D1 /* Calendar */,
+				FC84936343E90D8FF5989BA1 /* Crew */,
+				16C343F6054D7777D935A3C1 /* Exercise */,
+				0C866490D6F9E5586889DB0D /* Photo */,
 				A495F5E418555F02304B0902 /* Settings */,
+				AB4A383358C42DC88EE35B54 /* Stats */,
 				031A287959970135D3925152 /* Today */,
 			);
 			path = UI;
@@ -94,8 +165,17 @@
 			isa = PBXGroup;
 			children = (
 				B91A88BAD803023EC76CF33D /* Assets.xcassets */,
+				2D0E599A6B7B48A877412677 /* catalog.json */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		8F6E24B7E63C6ED10AEBE0D1 /* Calendar */ = {
+			isa = PBXGroup;
+			children = (
+				067119BB79712EBB4F07FBEE /* CalendarView.swift */,
+			);
+			path = Calendar;
 			sourceTree = "<group>";
 		};
 		A38064E63B18A921760B7BF5 = {
@@ -114,12 +194,28 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		AB4A383358C42DC88EE35B54 /* Stats */ = {
+			isa = PBXGroup;
+			children = (
+				934DEAABECAB29F1EE35CE76 /* StatsView.swift */,
+			);
+			path = Stats;
+			sourceTree = "<group>";
+		};
 		F079CC1A67F7B44F4A4D9636 /* App */ = {
 			isa = PBXGroup;
 			children = (
 				DDAF8ABD58235D6D56C8246D /* GymchekApp.swift */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		FC84936343E90D8FF5989BA1 /* Crew */ = {
+			isa = PBXGroup;
+			children = (
+				16C0586843095D4A24CCB570 /* CrewView.swift */,
+			);
+			path = Crew;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -183,6 +279,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8AD7DEA0D559855F35A20AE3 /* Assets.xcassets in Resources */,
+				FFDE0C8D138FE3DA5E1D874E /* catalog.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -194,11 +291,26 @@
 			buildActionMask = 2147483647;
 			files = (
 				8308902828761C9B03D16B7E /* API.swift in Sources */,
+				2A564D2DDC67E234ED92408E /* Badges.swift in Sources */,
+				5EBA72609CAFBF5879FFB1C2 /* CalendarView.swift in Sources */,
+				4EA1911522C57BC7AA045785 /* Camera.swift in Sources */,
+				C0BE54191D49EC12A2B28C72 /* CameraView.swift in Sources */,
+				F8EE9F5AD2149A9B074FB449 /* Card.swift in Sources */,
+				E86318C11EB8A5A8F4196290 /* Catalog.swift in Sources */,
+				801011C1B37975466952D900 /* Celebration.swift in Sources */,
+				19864423289A4497E352916D /* Crew.swift in Sources */,
+				0E9281C27CCE51CE0E947928 /* CrewView.swift in Sources */,
 				38867006AA01DB6A4D8F2F4C /* Day.swift in Sources */,
+				66A381B7654545E54C54FA04 /* ExerciseViews.swift in Sources */,
 				57227C0A2BFDA90305566439 /* GymchekApp.swift in Sources */,
+				ACCE50CEBA219675A579054C /* MedalView.swift in Sources */,
 				0517E90836F3A0E24D7A1381 /* Models.swift in Sources */,
+				6D67CCE2C0561B0A92BE9E3B /* PartEditor.swift in Sources */,
+				7B373F10E469DF93319839A7 /* PhotoStore.swift in Sources */,
 				FB62090B39182AFDDC7537E1 /* SettingsView.swift in Sources */,
+				7EB4C8B8A59E8204F8A30501 /* StatsView.swift in Sources */,
 				AB1B104D30257B4A555D3F0C /* Store.swift in Sources */,
+				5ED18ABD3CADC33CB1868A66 /* SwipeRow.swift in Sources */,
 				C3B507B268BA5A357174C935 /* Theme.swift in Sources */,
 				CEC6E94E03F9FB57FDFB0D42 /* TodayView.swift in Sources */,
 			);
