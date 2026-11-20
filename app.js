@@ -25,7 +25,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.6.1';
+  const APP_VERSION = '1.6.2';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -414,11 +414,15 @@
     const parts = state.parts.filter(p => done.has(p.id));
     const headline = photoHeadline(parts);
     const dateLine = `${t.getFullYear()}.${pad(t.getMonth() + 1)}.${pad(t.getDate())} ${WEEKDAYS_EN[t.getDay()]}`;
+    // Gym days this year up to and including the photo's date, e.g. "30/365".
+    const yearPrefix = `${t.getFullYear()}-`;
+    const yearCount = Object.entries(state.records).filter(([k, a]) => k.startsWith(yearPrefix) && k <= tk && a.length).length;
+    const badgeText = `${yearCount}/${daysInYear(t.getFullYear())}`;
     const KR = '"Pretendard Variable", sans-serif';
 
     const [sticker] = await Promise.all([
       stickerId ? loadSticker(stickerId) : null,
-      ensurePhotoFonts(headline + dateLine + '오운완'),
+      ensurePhotoFonts(headline + dateLine + badgeText),
     ]);
 
     const scale = Math.min(1, 1600 / Math.max(src.width, src.height));
@@ -464,16 +468,16 @@
     const rowY = m + badgeH / 2;
     ctx.fillText(dateLine, m, rowY);
 
-    // Top right: 오운완 badge.
+    // Top right: this year's count, "30/365".
     ctx.shadowBlur = 0;
-    ctx.font = `800 ${4.3 * u}px ${KR}`;
-    const badgeW = ctx.measureText('오운완').width + 5.2 * u;
+    ctx.font = `italic 800 ${5.4 * u}px "Barlow Condensed", ${KR}`;
+    const badgeW = ctx.measureText(badgeText).width + 5.6 * u;
     roundRect(ctx, W - m - badgeW, m, badgeW, badgeH, badgeH / 2);
     ctx.fillStyle = VOLT;
     ctx.fill();
     ctx.fillStyle = '#0A0A0B';
     ctx.textAlign = 'center';
-    ctx.fillText('오운완', W - m - badgeW / 2, rowY + 0.2 * u);
+    ctx.fillText(badgeText, W - m - badgeW / 2, rowY + 0.3 * u);
     ctx.textAlign = 'left';
 
     // Bottom right: the chosen character, standing on the bottom edge.
