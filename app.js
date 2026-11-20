@@ -25,7 +25,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.4.0';
+  const APP_VERSION = '1.6.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -370,8 +370,56 @@
     return s;
   }
 
-  async function composePhoto(src, stickerId) {
-    const t = today();
+  // ---- selfie detection ----
+  // iOS shows the front camera mirrored while shooting but saves the photo un-mirrored,
+  // so selfies look flipped. iPhone photos name the lens in EXIF ("... front camera ..."),
+  // which lets us flip those back automatically. Best effort: any parse problem → false.
+  async function isUnmirroredSelfie(file) {
+    try {
+      const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+      if (v.getUint16(0) !== 0xFFD8) return false; // not a JPEG
+      let off = 2;
+      while (off + 10 <= v.byteLength) {
+        const marker = v.getUint16(off);
+        if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) return false; // scan data: no EXIF
+        if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) { // APP1 "Exif"
+          const { lens, orientation } = readExif(v, off + 10);
+          const alreadyMirrored = [2, 4, 5, 7].includes(orientation);
+          return /front/i.test(lens) && !alreadyMirrored;
+        }
+        off += 2 + v.getUint16(off + 2);
+      }
+    } catch (e) { /* unreadable EXIF */ }
+    return false;
+  }
+
+  function readExif(v, tiff) {
+    const little = v.getUint16(tiff) === 0x4949;
+    const u16 = o => v.getUint16(tiff + o, little);
+    const u32 = o => v.getUint32(tiff + o, little);
+    const entry = (ifd, tag) => {
+      const n = u16(ifd);
+      for (let i = 0; i < n; i++) if (u16(ifd + 2 + i * 12) === tag) return ifd + 2 + i * 12;
+      return -1;
+    };
+    const ifd0 = u32(4);
+    const o = entry(ifd0, 0x0112);
+    const orientation = o < 0 ? 1 : u16(o + 8);
+    let lens = '';
+    const exifPtr = entry(ifd0, 0x8769);
+    if (exifPtr >= 0) {
+      const l = entry(u32(exifPtr + 8), 0xA434); // LensModel
+      if (l >= 0) {
+        const count = u32(l + 4);
+        const start = count > 4 ? u32(l + 8) : l + 8;
+        for (let i = 0; i < count - 1 && i < 120; i++) lens += String.fromCharCode(v.getUint8(tiff + start + i));
+      }
+    }
+    return { lens, orientation };
+  }
+
+  async function composePhoto(src, stickerId, flip) {
+    const t = photoKey ? parseKey(photoKey) : today();
     const tk = keyOf(t);
     const done = new Set(dayParts(tk));
     const parts = state.parts.filter(p => done.has(p.id));
@@ -393,7 +441,16 @@
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(src, 0, 0, W, H);
+    if (flip) {
+      // Mirror only the photo; the date, text and character stay readable.
+      ctx.save();
+      ctx.translate(W, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(src, 0, 0, W, H);
+      ctx.restore();
+    } else {
+      ctx.drawImage(src, 0, 0, W, H);
+    }
 
     const u = Math.min(W, H) / 100;
     const m = 6 * u; // margin
@@ -489,9 +546,22 @@
   let photoBlob = null;
   let photoUrl = '';
   let photoSeq = 0;
+  let photoFlip = false;
+  const photoFlipBtn = $('#photo-flip');
 
-  function startPhoto() {
-    if (!attended(keyOf(today()))) { toast('오늘 한 운동을 먼저 체크해 주세요'); return; }
+  function setPhotoFlip(on) {
+    photoFlip = on;
+    photoFlipBtn.setAttribute('aria-pressed', String(on));
+  }
+
+  let photoKey = null; // the date the photo belongs to
+
+  function startPhoto(key = keyOf(today())) {
+    if (!attended(key)) {
+      toast(key === keyOf(today()) ? '오늘 한 운동을 먼저 체크해 주세요' : '그날 한 운동을 먼저 체크해 주세요');
+      return;
+    }
+    photoKey = key;
     $('#photo-input').click();
   }
 
@@ -520,7 +590,7 @@
       photoLoading.textContent = '사진 만드는 중…';
     }
     try {
-      const blob = await composePhoto(photoSource, state.photoSticker);
+      const blob = await composePhoto(photoSource, state.photoSticker, photoFlip);
       if (seq !== photoSeq) return; // a newer pick is already rendering
       photoBlob = blob;
       if (photoUrl) URL.revokeObjectURL(photoUrl);
@@ -549,6 +619,7 @@
       const img = await loadImage(file);
       if (photoSource && photoSource.close) photoSource.close();
       photoSource = img;
+      setPhotoFlip(await isUnmirroredSelfie(file));
     } catch (e) {
       photoLoading.textContent = '이 사진은 열 수 없어요. 다른 사진을 골라 주세요';
       return;
@@ -558,6 +629,7 @@
 
   function closePhoto() {
     photoEditor.hidden = true;
+    setPhotoFlip(false);
     photoSeq++;
     photoPreview.removeAttribute('src');
     if (photoUrl) URL.revokeObjectURL(photoUrl);
@@ -569,18 +641,165 @@
 
   async function savePhoto() {
     if (!photoBlob) return;
-    const file = new File([photoBlob], `owoonwan-${keyOf(today())}.jpg`, { type: 'image/jpeg' });
+    const key = photoKey || keyOf(today());
+    const blob = photoBlob;
+    // Keep it in the app under its date. Runs alongside the share sheet, which has to
+    // open straight from the tap.
+    const stored = storeDayPhoto(key, blob, photoSource, photoFlip).then(() => true, () => false);
+    await shareOrDownload(new File([blob], `owoonwan-${key}.jpg`, { type: 'image/jpeg' }));
+    const ok = await stored;
+    renderCurrent();
+    toast(ok ? `${md(key)} 오운완으로 저장했어요` : '앱에 저장하지 못했어요. 사진은 앨범에 저장해 두세요');
+  }
+
+  // ---------- 오운완 photo diary ----------
+  // Saved photos live in IndexedDB (localStorage is far too small for images), one per
+  // date: 'full' holds the finished JPEG, 'thumb' a small square for the calendar.
+  const photoStore = (() => {
+    let dbp = null;
+    const open = () => {
+      if (!dbp) {
+        dbp = new Promise((resolve, reject) => {
+          const req = indexedDB.open('gymcheck-photos', 1);
+          req.onupgradeneeded = () => {
+            req.result.createObjectStore('full');
+            req.result.createObjectStore('thumb');
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+        dbp.catch(() => { dbp = null; });
+      }
+      return dbp;
+    };
+    const run = async (stores, mode, work) => {
+      const db = await open();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(stores, mode);
+        let out;
+        work(tx, v => { out = v; });
+        tx.oncomplete = () => resolve(out);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    };
+    return {
+      put: (key, full, thumb) => run(['full', 'thumb'], 'readwrite', tx => {
+        tx.objectStore('full').put(full, key);
+        tx.objectStore('thumb').put(thumb, key);
+      }),
+      full: key => run('full', 'readonly', (tx, done) => {
+        const r = tx.objectStore('full').get(key);
+        r.onsuccess = () => done(r.result || null);
+      }),
+      remove: key => run(['full', 'thumb'], 'readwrite', tx => {
+        tx.objectStore('full').delete(key);
+        tx.objectStore('thumb').delete(key);
+      }),
+      thumbs: () => run('thumb', 'readonly', (tx, done) => {
+        const list = [];
+        const c = tx.objectStore('thumb').openCursor();
+        c.onsuccess = () => {
+          const cur = c.result;
+          if (cur) { list.push([cur.key, cur.value]); cur.continue(); } else done(list);
+        };
+      }),
+    };
+  })();
+
+  const photoThumbs = new Map(); // date key → object URL of its thumbnail
+  let sheetPhoto = { key: null, blob: null, url: '' }; // full photo shown in the day sheet
+
+  function setThumb(key, blob) {
+    if (photoThumbs.has(key)) URL.revokeObjectURL(photoThumbs.get(key));
+    if (blob) photoThumbs.set(key, URL.createObjectURL(blob));
+    else photoThumbs.delete(key);
+  }
+
+  function clearSheetPhoto() {
+    if (sheetPhoto.url) URL.revokeObjectURL(sheetPhoto.url);
+    sheetPhoto = { key: null, blob: null, url: '' };
+  }
+
+  async function loadSheetPhoto(key) {
+    if (sheetPhoto.key === key) return;
+    clearSheetPhoto();
+    sheetPhoto.key = key;
+    try {
+      const blob = await photoStore.full(key);
+      if (sheetPhoto.key !== key) return;
+      sheetPhoto.blob = blob;
+      sheetPhoto.url = blob ? URL.createObjectURL(blob) : '';
+    } catch (e) { /* show the thumbnail only */ }
+    if (ui.sheetDate === key) renderSheet();
+  }
+
+  async function loadPhotoThumbs() {
+    if (!('indexedDB' in window)) return;
+    try {
+      for (const [key, blob] of await photoStore.thumbs()) setThumb(key, blob);
+      if (photoThumbs.size) renderCurrent();
+    } catch (e) { /* nothing saved yet */ }
+  }
+
+  // Square crop a bit above centre, where faces usually are. Made from the original
+  // photo (no text on it) when we still have it, otherwise from the finished image.
+  async function makeThumb(source, flip = false) {
+    const own = source instanceof Blob;
+    const img = own ? await loadImage(source) : source;
+    const s = Math.min(img.width, img.height);
+    const c = document.createElement('canvas');
+    c.width = c.height = 240;
+    const ctx = c.getContext('2d');
+    if (flip) { ctx.translate(240, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(img, (img.width - s) / 2, (img.height - s) * 0.35, s, s, 0, 0, 240, 240);
+    if (own && img.close) img.close();
+    return new Promise((resolve, reject) => c.toBlob(b => (b ? resolve(b) : reject(new Error('thumb'))), 'image/jpeg', 0.8));
+  }
+
+  async function storeDayPhoto(key, blob, source, flip) {
+    const thumb = await makeThumb(source || blob, flip);
+    await photoStore.put(key, blob, thumb);
+    setThumb(key, thumb);
+    if (sheetPhoto.key === key) clearSheetPhoto();
+  }
+
+  async function shareOrDownload(file) {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({ files: [file] });
-        return;
+        return true;
       } catch (e) {
-        if (e && e.name === 'AbortError') return;
+        if (e && e.name === 'AbortError') return false;
       }
     }
     downloadFile(file);
-    toast('사진을 저장했어요');
+    return true;
   }
+
+  function shareDayPhoto() {
+    const k = ui.sheetDate;
+    if (!k || sheetPhoto.key !== k || !sheetPhoto.blob) return;
+    shareOrDownload(new File([sheetPhoto.blob], `owoonwan-${k}.jpg`, { type: 'image/jpeg' }));
+  }
+
+  async function deleteDayPhoto() {
+    const k = ui.sheetDate;
+    if (!k) return;
+    if (!confirm(`${fmtLong(parseKey(k))} 오운완 사진을 지울까요?\n앨범에 저장해 둔 사진은 그대로예요.`)) return;
+    try {
+      await photoStore.remove(k);
+    } catch (e) {
+      toast('사진을 지우지 못했어요');
+      return;
+    }
+    setThumb(k, null);
+    clearSheetPhoto();
+    renderCurrent();
+    toast('사진을 지웠어요');
+  }
+
+  const md = key => { const d = parseKey(key); return `${d.getMonth() + 1}월 ${d.getDate()}일`; };
 
   // ---------- rendering ----------
   const views = {
@@ -630,9 +849,10 @@
       const d = addDays(ws, i);
       const k = keyOf(d);
       const on = attended(k);
-      const cls = ['wk', on && 'on', k === tk && 'today', d > t && 'future'].filter(Boolean).join(' ');
-      return `<button class="${cls}" data-action="open-day" data-key="${k}"${d > t ? ' disabled' : ''} aria-label="${d.getMonth() + 1}월 ${d.getDate()}일${on ? ', 운동함' : ''}">
-        <span class="wk-label">${WEEKDAYS[d.getDay()]}</span><span class="wk-dot">${on ? ICON.check : d.getDate()}</span></button>`;
+      const ph = photoThumbs.get(k);
+      const cls = ['wk', on && 'on', k === tk && 'today', d > t && 'future', ph && 'photo'].filter(Boolean).join(' ');
+      return `<button class="${cls}" data-action="open-day" data-key="${k}"${d > t ? ' disabled' : ''}${ph ? ` style="--ph:url('${ph}')"` : ''} aria-label="${d.getMonth() + 1}월 ${d.getDate()}일${on ? ', 운동함' : ''}${ph ? ', 사진 있음' : ''}">
+        <span class="wk-label">${WEEKDAYS[d.getDay()]}</span><span class="wk-dot">${ph ? '' : on ? ICON.check : d.getDate()}</span></button>`;
     }).join('');
 
     const tiles = state.parts.map(p => {
@@ -683,9 +903,11 @@
 
       <div class="section-head"><h2>오늘 한 운동</h2><span class="kicker">Workout</span></div>
       <div class="tiles">${tiles}</div>
-      <button class="photo-cta${done.size ? '' : ' idle'}" data-action="photo">
+      ${photoThumbs.has(tk)
+        ? `<button class="photo-cta has-photo" data-action="open-day" data-key="${tk}"><img src="${photoThumbs.get(tk)}" alt=""><span>오늘 오운완 보기</span></button>`
+        : `<button class="photo-cta${done.size ? '' : ' idle'}" data-action="photo">
         ${ICON.camera}<span>${done.size ? `${esc(photoHeadline(state.parts.filter(p => done.has(p.id))))} 오운완 찍기` : '운동 체크하고 오운완 찍기'}</span>
-      </button>
+      </button>`}
       ${backupBanner()}`;
   }
 
@@ -718,9 +940,10 @@
         names.push(p.name);
         dots += `<i style="background:${p.color}"></i>`;
       }
-      const cls = ['day', col === 5 && 'sat', col === 6 && 'sun', arr.length && 'attended', k === tk && 'today']
+      const ph = photoThumbs.get(k);
+      const cls = ['day', col === 5 && 'sat', col === 6 && 'sun', arr.length && 'attended', k === tk && 'today', ph && 'photo']
         .filter(Boolean).join(' ');
-      cells += `<button class="${cls}" data-action="open-day" data-key="${k}"${k > tk ? ' disabled' : ''} aria-label="${mo + 1}월 ${d}일${names.length ? `, ${esc(names.join(', '))}` : ''}">
+      cells += `<button class="${cls}" data-action="open-day" data-key="${k}"${k > tk ? ' disabled' : ''}${ph ? ` style="--ph:url('${ph}')"` : ''} aria-label="${mo + 1}월 ${d}일${names.length ? `, ${esc(names.join(', '))}` : ''}${ph ? ', 사진 있음' : ''}">
         <span class="num">${d}</span><span class="dots">${dots}</span></button>`;
     }
 
@@ -849,7 +1072,7 @@
       <div class="group">
         <p class="install">지금 아이콘은 예전 방식으로 추가돼서 화면 아래가 비어 보여요. 아이콘을 한 번만 다시 추가하면 꽉 차요.<br>
         <b>1</b> 아래 ‘내보내기’로 기록 백업<br>
-        <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(이때 기록도 같이 지워져요)</small><br>
+        <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(이때 기록과 앱에 저장한 사진도 같이 지워져요)</small><br>
         <b>3</b> Safari로 앱 주소를 열고 <b>새로고침(↻) 한 번</b> → 공유 → ‘홈 화면에 추가’<br>
         <b>4</b> 새 아이콘에서 설정 → ‘가져오기’로 백업 불러오기</p>
         <div class="row">
@@ -901,7 +1124,7 @@
           <button class="btn" data-action="import">가져오기</button>
         </div>
       </div>
-      <p class="note tight">기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요.</p>
+      <p class="note tight">기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 앱에 저장한 오운완 사진은 백업 파일에 들어가지 않으니, 남기고 싶은 사진은 앨범에도 저장해 두세요.</p>
 
       ${standalone ? '' : `
       <div class="section-head"><h2>홈 화면에 추가</h2><span class="kicker">Install</span></div>
@@ -916,6 +1139,18 @@
     const d = parseKey(k);
     const done = new Set(dayParts(k));
     const isToday = k === keyOf(today());
+    const hasPhoto = photoThumbs.has(k);
+    if (hasPhoto && sheetPhoto.key !== k) loadSheetPhoto(k);
+    const photoSrc = sheetPhoto.key === k && sheetPhoto.url ? sheetPhoto.url : photoThumbs.get(k);
+    const photoBlock = hasPhoto ? `
+      <div class="sheet-photo">
+        <img src="${photoSrc}" alt="${fmtLong(d)} 오운완 사진">
+        <div class="sheet-photo-actions">
+          <button class="btn small" data-action="day-photo-share">공유</button>
+          <button class="btn small" data-action="day-photo-add">다시 찍기</button>
+          <button class="btn small danger" data-action="day-photo-delete">삭제</button>
+        </div>
+      </div>` : '';
     sheet.innerHTML = `
       <div class="handle" aria-hidden="true"></div>
       <div class="sheet-head">
@@ -925,7 +1160,9 @@
         </div>
         <button class="btn primary" data-action="close-sheet">완료</button>
       </div>
+      ${photoBlock}
       <div class="tiles compact">${state.parts.map(p => tile(p, done.has(p.id), '', 'toggle-day')).join('')}</div>
+      ${!hasPhoto && done.size ? `<button class="photo-cta" data-action="day-photo-add">${ICON.camera}<span>이날 오운완 사진 추가</span></button>` : ''}
       <p class="note">${done.size ? `${done.size}개 부위 체크됨` : '이날은 기록이 없어요'}</p>`;
   }
 
@@ -970,6 +1207,7 @@
   function closeSheet() {
     if (!ui.sheetDate) return;
     ui.sheetDate = null;
+    clearSheetPhoto();
     sheet.classList.remove('open');
     backdrop.classList.remove('open');
     sheetTimer = setTimeout(() => { sheet.hidden = true; backdrop.hidden = true; }, 320);
@@ -1056,10 +1294,17 @@
       case 'import': $('#import-file').click(); break;
       case 'update': manualUpdate(); break;
       case 'photo': startPhoto(); break;
+      case 'day-photo-add': startPhoto(ui.sheetDate); break;
+      case 'day-photo-share': shareDayPhoto(); break;
+      case 'day-photo-delete': deleteDayPhoto(); break;
       case 'photo-retake': $('#photo-input').click(); break;
       case 'photo-save': savePhoto(); break;
       case 'photo-close': closePhoto(); break;
       case 'photo-sticker': pickSticker(el.dataset.id); break;
+      case 'photo-flip':
+        setPhotoFlip(!photoFlip);
+        renderPhoto();
+        break;
       case 'apply-update': applyUpdate(); break;
       case 'show-fit':
         setTab('settings');
@@ -1179,6 +1424,7 @@
 
   // ---------- boot ----------
   renderCurrent();
+  loadPhotoThumbs();
   scheduleMidnightRefresh();
   setTimeout(checkForUpdate, 800);
 
