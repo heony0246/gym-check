@@ -1001,9 +1001,10 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
 .viewer-who { display: flex; flex-direction: column; min-width: 0; }
 .viewer-who b { font-size: 16px; font-weight: 800; }
 .viewer-who small { font-size: 12px; font-weight: 600; color: var(--muted); }
-.viewer-stage { flex: 1; min-height: 0; display: grid; place-items: center; }
-.viewer-stage img { max-width: 100%; max-height: 100%; border-radius: 14px; object-fit: contain; }
-.viewer-actions { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; }
+.viewer-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.viewer-stage { display: grid; place-items: center; }
+.viewer-stage img { max-width: 100%; max-height: 58dvh; border-radius: 14px; object-fit: contain; }
+.viewer-actions { display: flex; align-items: center; gap: 12px; margin: 14px 0 6px; }
 .viewer-actions small { font-size: 13px; font-weight: 600; color: var(--muted); }
 .fire {
   display: inline-flex;
@@ -1156,3 +1157,17 @@ h1, h2, .cheer-title, .note, .crew-intro, .row-label small, .badge-note, .instal
 }
 .ex-confirm .photo-cta { margin: 0; }
 .ex-skip { display: block; width: 100%; margin-top: 4px; padding: 12px; color: var(--muted); text-align: center; }
+
+/* Comments under a crew proof. */
+.comment-count { font-size: 14px; font-weight: 700; color: var(--muted); }
+.comments { display: grid; gap: 12px; padding: 8px 2px 16px; }
+.comment { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; row-gap: 2px; font-size: 15px; line-height: 1.45; }
+.comment b { font-weight: 800; }
+.comment span { overflow-wrap: anywhere; }
+.comment small { grid-column: 2; font-size: 12px; color: var(--faint); }
+.comment .link-btn { padding: 0; font-size: 12px; }
+.comments .note { margin: 4px 0 0; }
+.comment-bar { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.comment-bar input { flex: 1; min-width: 0; height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); outline: none; }
+.comment-bar input:focus { border-color: var(--volt); }
+.comment-bar .btn { height: 46px; }

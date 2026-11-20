@@ -1,0 +1,41 @@
+name: Gymchek
+options:
+  bundleIdPrefix: kr.gymchek
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    DEVELOPMENT_TEAM: 9M5VG7QEMS
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  Gymchek:
+    type: application
+    platform: iOS
+    sources:
+      - path: Gymchek
+    info:
+      path: Gymchek/Info.plist
+      properties:
+        CFBundleDisplayName: 짐첵
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIUserInterfaceStyle: Dark
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: 오운완 사진을 찍을 때 카메라를 써요
+        NSPhotoLibraryUsageDescription: 오운완 사진을 고를 때 사진첩을 써요
+        NSPhotoLibraryAddUsageDescription: 오운완 카드를 사진첩에 저장해요
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: kr.gymchek.app
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic

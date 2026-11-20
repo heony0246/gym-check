@@ -1,6 +1,6 @@
 {
-  "name": "헬스 체크",
-  "short_name": "헬스체크",
+  "name": "짐첵",
+  "short_name": "짐첵",
   "description": "헬스장 출석과 운동 부위를 체크하는 앱",
   "lang": "ko",
   "start_url": "./",

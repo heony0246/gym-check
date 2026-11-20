@@ -1,0 +1,399 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0517E90836F3A0E24D7A1381 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE13D02149505464FD85B518 /* Models.swift */; };
+		38867006AA01DB6A4D8F2F4C /* Day.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6A2BF6BBA2FEB6A95B7807 /* Day.swift */; };
+		57227C0A2BFDA90305566439 /* GymchekApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDAF8ABD58235D6D56C8246D /* GymchekApp.swift */; };
+		8308902828761C9B03D16B7E /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98BF0E312B76C558259F3DF /* API.swift */; };
+		8AD7DEA0D559855F35A20AE3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B91A88BAD803023EC76CF33D /* Assets.xcassets */; };
+		AB1B104D30257B4A555D3F0C /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AD3E0BEBC7EE2BB30071BB /* Store.swift */; };
+		C3B507B268BA5A357174C935 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670755DD2D800F65365E0DCA /* Theme.swift */; };
+		CEC6E94E03F9FB57FDFB0D42 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 596F32FBC2D836FC62A6E3A4 /* TodayView.swift */; };
+		FB62090B39182AFDDC7537E1 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E9FA6DAB9B2E1FAB01EE377 /* SettingsView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		596F32FBC2D836FC62A6E3A4 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		670755DD2D800F65365E0DCA /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		93697371738F23405E522B28 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		9E9FA6DAB9B2E1FAB01EE377 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A98BF0E312B76C558259F3DF /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
+		AF9EFF60FA1D2B796EA08974 /* Gymchek.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Gymchek.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B91A88BAD803023EC76CF33D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		BA6A2BF6BBA2FEB6A95B7807 /* Day.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Day.swift; sourceTree = "<group>"; };
+		C5AD3E0BEBC7EE2BB30071BB /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
+		DDAF8ABD58235D6D56C8246D /* GymchekApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymchekApp.swift; sourceTree = "<group>"; };
+		EE13D02149505464FD85B518 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		031A287959970135D3925152 /* Today */ = {
+			isa = PBXGroup;
+			children = (
+				596F32FBC2D836FC62A6E3A4 /* TodayView.swift */,
+			);
+			path = Today;
+			sourceTree = "<group>";
+		};
+		0331BF9617EDCBE49983577A /* Model */ = {
+			isa = PBXGroup;
+			children = (
+				BA6A2BF6BBA2FEB6A95B7807 /* Day.swift */,
+				EE13D02149505464FD85B518 /* Models.swift */,
+				C5AD3E0BEBC7EE2BB30071BB /* Store.swift */,
+			);
+			path = Model;
+			sourceTree = "<group>";
+		};
+		17EC62FFE5D74AE141BA4D11 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				670755DD2D800F65365E0DCA /* Theme.swift */,
+				A495F5E418555F02304B0902 /* Settings */,
+				031A287959970135D3925152 /* Today */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		1A63028A1C4EFD255B289F70 /* Gymchek */ = {
+			isa = PBXGroup;
+			children = (
+				93697371738F23405E522B28 /* Info.plist */,
+				F079CC1A67F7B44F4A4D9636 /* App */,
+				0331BF9617EDCBE49983577A /* Model */,
+				3143A3BAF25F2F924F23DB7C /* Network */,
+				32060462D0EDE8C47177268C /* Resources */,
+				17EC62FFE5D74AE141BA4D11 /* UI */,
+			);
+			path = Gymchek;
+			sourceTree = "<group>";
+		};
+		2FFC2101CAD02CBE98E3355A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AF9EFF60FA1D2B796EA08974 /* Gymchek.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		3143A3BAF25F2F924F23DB7C /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				A98BF0E312B76C558259F3DF /* API.swift */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
+		32060462D0EDE8C47177268C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				B91A88BAD803023EC76CF33D /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A38064E63B18A921760B7BF5 = {
+			isa = PBXGroup;
+			children = (
+				1A63028A1C4EFD255B289F70 /* Gymchek */,
+				2FFC2101CAD02CBE98E3355A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A495F5E418555F02304B0902 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				9E9FA6DAB9B2E1FAB01EE377 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		F079CC1A67F7B44F4A4D9636 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				DDAF8ABD58235D6D56C8246D /* GymchekApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6FB7BAD0140EB197D6C1B63A /* Gymchek */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6215F2E7F0CE39CA1B16EA28 /* Build configuration list for PBXNativeTarget "Gymchek" */;
+			buildPhases = (
+				73D82791EF44315A96F2706C /* Sources */,
+				EBBB9F03D41DDDDD4258F847 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Gymchek;
+			packageProductDependencies = (
+			);
+			productName = Gymchek;
+			productReference = AF9EFF60FA1D2B796EA08974 /* Gymchek.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		78096191AF402038A7C2F388 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					6FB7BAD0140EB197D6C1B63A = {
+						DevelopmentTeam = 9M5VG7QEMS;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = D07EA68A34B937C98BF9A8D0 /* Build configuration list for PBXProject "Gymchek" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A38064E63B18A921760B7BF5;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 2FFC2101CAD02CBE98E3355A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6FB7BAD0140EB197D6C1B63A /* Gymchek */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EBBB9F03D41DDDDD4258F847 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8AD7DEA0D559855F35A20AE3 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		73D82791EF44315A96F2706C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8308902828761C9B03D16B7E /* API.swift in Sources */,
+				38867006AA01DB6A4D8F2F4C /* Day.swift in Sources */,
+				57227C0A2BFDA90305566439 /* GymchekApp.swift in Sources */,
+				0517E90836F3A0E24D7A1381 /* Models.swift in Sources */,
+				FB62090B39182AFDDC7537E1 /* SettingsView.swift in Sources */,
+				AB1B104D30257B4A555D3F0C /* Store.swift in Sources */,
+				C3B507B268BA5A357174C935 /* Theme.swift in Sources */,
+				CEC6E94E03F9FB57FDFB0D42 /* TodayView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0D40AAC6D32FF5C9E0D2E393 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Gymchek/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = kr.gymchek.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		7FFB856FBD3C5FDDC02FF111 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 9M5VG7QEMS;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		B537F36E88225DD452523D5D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Gymchek/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = kr.gymchek.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		DC530E58828CFA5DAA16C96D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 9M5VG7QEMS;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6215F2E7F0CE39CA1B16EA28 /* Build configuration list for PBXNativeTarget "Gymchek" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0D40AAC6D32FF5C9E0D2E393 /* Debug */,
+				B537F36E88225DD452523D5D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D07EA68A34B937C98BF9A8D0 /* Build configuration list for PBXProject "Gymchek" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DC530E58828CFA5DAA16C96D /* Debug */,
+				7FFB856FBD3C5FDDC02FF111 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 78096191AF402038A7C2F388 /* Project object */;
+}

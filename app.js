@@ -592,7 +592,7 @@
   }
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '2.3.2';
+  const APP_VERSION = '2.3.3';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -634,7 +634,7 @@
   // Validates anything that comes from storage or a backup file.
   function normalize(src) {
     if (!src || typeof src !== 'object' || !src.records || typeof src.records !== 'object') {
-      throw new Error('헬스 체크 백업 파일이 아니에요');
+      throw new Error('짐첵 백업 파일이 아니에요');
     }
     const out = defaultState();
 
@@ -1487,7 +1487,7 @@
       img.src = photoThumbs.get(k);
       try { await img.decode(); thumbs.set(k, img); } catch (e) { /* skip */ }
     }));
-    await ensurePhotoFonts(`${kicker}${mo + 1}월 결산헬스장 간 날출석률최장 연속최다 부위${topText}월화수목금토일GYM CHECK0123456789/%일`);
+    await ensurePhotoFonts(`${kicker}${mo + 1}월 결산헬스장 간 날출석률최장 연속최다 부위${topText}월화수목금토일GYMCHEK0123456789/%일`);
 
     const canvas = document.createElement('canvas');
     canvas.width = W;
@@ -1589,7 +1589,7 @@
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = '#55555B';
     ctx.font = `700 30px "Barlow Condensed", ${KR}`;
-    ctx.fillText('GYM CHECK', W / 2, 1790);
+    ctx.fillText('GYMCHEK', W / 2, 1790);
     ctx.textAlign = 'left';
 
     return canvasToJpeg(canvas);
@@ -2853,26 +2853,97 @@
   // ---- proof photo, full screen ----
   const viewerEl = $('#viewer');
   function openViewer(userId, date) {
-    crew.viewer = { userId, date };
+    crew.viewer = { userId, date, comments: null, draft: '', sending: false };
     renderViewer();
     viewerEl.hidden = false;
     void viewerEl.offsetHeight;
     viewerEl.classList.add('open');
+    loadComments();
   }
+
+  async function loadComments() {
+    const v = crew.viewer;
+    if (!v) return;
+    try {
+      const r = await api(`/api/proofs/${v.userId}/${v.date}/comments`);
+      if (crew.viewer !== v) return;
+      v.comments = r.comments;
+      const p = proofOf(v.userId, v.date);
+      if (p) p.comments = r.comments.length;
+    } catch (e) {
+      if (crew.viewer === v) v.comments = [];
+    }
+    renderViewer();
+  }
+
+  async function sendComment() {
+    const v = crew.viewer;
+    const body = (v && v.draft || '').trim();
+    if (!v || !body || v.sending) return;
+    v.sending = true;
+    renderViewer();
+    try {
+      const { comment } = await api(`/api/proofs/${v.userId}/${v.date}/comments`, { method: 'POST', body: { body } });
+      v.comments = (v.comments || []).concat(comment);
+      v.draft = '';
+      const p = proofOf(v.userId, v.date);
+      if (p) p.comments = v.comments.length;
+      renderCrewIfShown();
+    } catch (e) {
+      toast(e.message);
+    }
+    v.sending = false;
+    renderViewer();
+    const list = viewerEl.querySelector('.viewer-scroll');
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+
+  async function deleteComment(id) {
+    const v = crew.viewer;
+    if (!v || !confirm('이 댓글을 지울까요?')) return;
+    try {
+      await api(`/api/comments/${id}`, { method: 'DELETE' });
+      v.comments = (v.comments || []).filter(c => c.id !== id);
+      const p = proofOf(v.userId, v.date);
+      if (p) p.comments = v.comments.length;
+      renderCrewIfShown();
+      renderViewer();
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+
+  const commentTime = ms => { const d = new Date(ms); return `${d.getHours()}:${pad(d.getMinutes())}`; };
+
   function renderViewer() {
     const v = crew.viewer;
     const p = v && proofOf(v.userId, v.date);
     const m = p && crew.board.members.find(x => x.id === v.userId);
     if (!p || !m) { closeViewer(); return; }
+    const comments = v.comments === null ? '<p class="note">댓글 불러오는 중…</p>'
+      : v.comments.length ? v.comments.map(c => `
+        <div class="comment">
+          <b>@${esc(c.from.handle)}</b><span>${esc(c.body)}</span>
+          <small>${commentTime(c.createdAt)}${c.canDelete ? ` · <button class="link-btn" data-action="comment-delete" data-id="${esc(c.id)}">삭제</button>` : ''}</small>
+        </div>`).join('') : '<p class="note">첫 댓글을 남겨 보세요</p>';
     viewerEl.innerHTML = `
       <div class="viewer-top">
         <span class="viewer-who"><b>@${esc(m.handle)}</b><small>${shortDay(p.date)} · ${esc(p.parts.join('·') || '오운완')}</small></span>
         <button class="icon-btn" data-action="viewer-close" aria-label="닫기">${ICON.close}</button>
       </div>
-      <div class="viewer-stage"><img src="${esc(API_BASE + p.image)}" alt="@${esc(m.handle)}의 오운완"></div>
-      <div class="viewer-actions">${m.isMe
-        ? `<span class="fire mine">🔥 <span>${p.fires}</span></span><small>크루원들이 보낸 응원</small>`
-        : `<button class="fire${p.fired ? ' on' : ''}" data-action="crew-fire" data-user="${esc(p.userId)}" data-date="${p.date}" aria-pressed="${p.fired}">🔥 <span>${p.fires}</span></button><small>${p.fired ? '응원했어요' : '눌러서 응원하기'}</small>`}</div>`;
+      <div class="viewer-scroll">
+        <div class="viewer-stage"><img src="${esc(API_BASE + p.image)}" alt="@${esc(m.handle)}의 오운완"></div>
+        <div class="viewer-actions">${m.isMe
+          ? `<span class="fire mine">🔥 <span>${p.fires}</span></span>`
+          : `<button class="fire${p.fired ? ' on' : ''}" data-action="crew-fire" data-user="${esc(p.userId)}" data-date="${p.date}" aria-pressed="${p.fired}">🔥 <span>${p.fires}</span></button>`}
+          <span class="comment-count">댓글 ${p.comments || 0}</span>
+        </div>
+        <div class="comments">${comments}</div>
+      </div>
+      <form class="comment-bar" data-form="comment" novalidate>
+        <input id="comment-input" type="text" maxlength="200" value="${esc(v.draft)}" placeholder="댓글 달기" autocomplete="off" enterkeyhint="send" aria-label="댓글">
+        <button class="btn primary" type="submit"${v.sending ? ' disabled' : ''}>보내기</button>
+      </form>`;
   }
   function closeViewer() {
     if (viewerEl.hidden) return;
@@ -2955,7 +3026,7 @@
       <button class="proof" data-action="crew-view" data-user="${esc(r.id)}" data-date="${tk}" aria-label="@${esc(r.handle)} 오늘 오운완 보기">
         <img src="${esc(API_BASE + r.now.image)}" alt="" loading="lazy" decoding="async">
         <span class="proof-who">@${esc(r.handle)}</span>
-        <span class="proof-fire${r.now.fired ? ' on' : ''}">🔥 ${r.now.fires}</span>
+        <span class="proof-fire${r.now.fired ? ' on' : ''}">🔥 ${r.now.fires}${r.now.comments ? ` 💬 ${r.now.comments}` : ''}</span>
       </button>`).join('')}</div>` : '<p class="note crew-none">아직 아무도 없어요</p>';
     const me = rows.find(r => r.isMe);
     const cta = me && me.now ? '' : `<button class="photo-cta" data-action="crew-shoot">${ICON.camera}<span>${attended(tk) ? '오운완 찍고 인증하기' : '운동 체크하고 오운완으로 인증하기'}</span></button>`;
@@ -3772,6 +3843,7 @@
       case 'crew-view': openViewer(el.dataset.user, el.dataset.date); break;
       case 'crew-fire': cheerProof(el.dataset.user, el.dataset.date); break;
       case 'viewer-close': closeViewer(); break;
+      case 'comment-delete': deleteComment(id); break;
       case 'part-delete': deletePart(id); break;
       case 'export':
         if (ui.tab !== 'settings') setTab('settings');
@@ -3827,6 +3899,9 @@
     if (e.target.matches('[data-form="part-save"]')) {
       e.preventDefault();
       savePart();
+    } else if (e.target.matches('[data-form="comment"]')) {
+      e.preventDefault();
+      sendComment();
     } else if (e.target.matches('[data-form="crew-create"]')) {
       e.preventDefault();
       createCrew();
@@ -3858,7 +3933,8 @@
     next.focus();
   });
   document.addEventListener('input', e => {
-    if (e.target.id === 'ex-search' && ui.exSheet) { ui.exSheet.q = e.target.value; renderExList(); }
+    if (e.target.id === 'comment-input' && crew.viewer) crew.viewer.draft = e.target.value;
+    else if (e.target.id === 'ex-search' && ui.exSheet) { ui.exSheet.q = e.target.value; renderExList(); }
     else if (e.target.dataset.set !== undefined && ui.exSheet && ui.exSheet.sets) {
       const st = ui.exSheet.sets[Number(e.target.dataset.set)];
       if (st) st[e.target.dataset.f] = e.target.value;

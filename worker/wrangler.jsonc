@@ -21,6 +21,10 @@
     }
   ],
   "vars": {
-    "ALLOWED_ORIGINS": "https://heony0246.github.io,http://localhost:5391,http://127.0.0.1:5391"
+    "ALLOWED_ORIGINS": "https://heony0246.github.io,http://localhost:5391,http://127.0.0.1:5391",
+    // Sign in with Apple: the iOS app's bundle id (and a web Services ID later).
+    "APPLE_AUDIENCES": "kr.gymchek.app",
+    // Kakao Developers app id (숫자). Filled in once the Kakao app exists.
+    "KAKAO_APP_ID": ""
   }
 }

@@ -79,9 +79,12 @@ async function route(request, env) {
   if (m === 'GET' && (p = path.match(/^\/img\/([A-Za-z0-9-]{20,80})$/))) return getImage(env, p[1]);
   if (m === 'POST' && path === '/api/users') return createUser(request, env);
   if (m === 'POST' && path === '/api/login') return login(request, env);
+  if (m === 'POST' && path === '/api/auth/apple') return socialLogin(request, env, 'apple');
+  if (m === 'POST' && path === '/api/auth/kakao') return socialLogin(request, env, 'kakao');
 
   const me = await authenticate(request, env);
-  if (m === 'GET' && path === '/api/me') return json({ user: me });
+  if (m === 'GET' && path === '/api/me') return getMe(env, me);
+  if (m === 'PUT' && (p = path.match(/^\/api\/me\/(apple|kakao)$/))) return linkSocial(request, env, me, p[1]);
   if (m === 'PATCH' && path === '/api/me') return updateMe(request, env, me);
   if (m === 'PUT' && path === '/api/me/password') return changePassword(request, env, me);
   if (m === 'DELETE' && path === '/api/session') return logout(env, me);
@@ -102,6 +105,11 @@ async function route(request, env) {
     if (m === 'DELETE') return deleteProof(env, me, p[1]);
   }
   if (m === 'POST' && (p = path.match(/^\/api\/proofs\/([\w-]+)\/(\d{4}-\d{2}-\d{2})\/cheer$/))) return toggleCheer(env, me, p[1], p[2]);
+  if ((p = path.match(/^\/api\/proofs\/([\w-]+)\/(\d{4}-\d{2}-\d{2})\/comments$/))) {
+    if (m === 'GET') return listComments(env, me, p[1], p[2]);
+    if (m === 'POST') return addComment(request, env, me, p[1], p[2]);
+  }
+  if (m === 'DELETE' && (p = path.match(/^\/api\/comments\/([\w-]+)$/))) return deleteComment(env, me, p[1]);
   if (m === 'GET' && path === '/api/search') return search(env, me, url);
   if (m === 'GET' && path === '/api/feed') return feed(env, me, url);
   if (m === 'GET' && path === '/api/today') return todayList(env, me, url);
@@ -251,6 +259,100 @@ async function createUser(request, env) {
     throw e;
   }
   return json({ user, token: await newSession(env, user.id) }, 201);
+}
+
+// ---------- Sign in with Apple / Kakao ----------
+// The app sends the provider's token; we check it with the provider and map its
+// stable user id to one account. A first-time user also sends the @handle they picked.
+
+const b64urlBytes = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((str.length + 3) % 4)), c => c.charCodeAt(0));
+const b64urlJson = str => JSON.parse(new TextDecoder().decode(b64urlBytes(str)));
+
+// Apple's public keys rotate rarely; keep them for an hour in this isolate.
+let appleKeys = { at: 0, keys: [] };
+async function appleKey(kid) {
+  if (Date.now() - appleKeys.at > 3600 * 1000 || !appleKeys.keys.some(k => k.kid === kid)) {
+    const r = await fetch('https://appleid.apple.com/auth/keys');
+    if (!r.ok) throw new HttpError(502, '애플 로그인을 확인하지 못했어요');
+    appleKeys = { at: Date.now(), keys: (await r.json()).keys || [] };
+  }
+  return appleKeys.keys.find(k => k.kid === kid);
+}
+
+// Verifies an Apple identity token (RS256 JWT) and returns its subject.
+async function appleSubject(env, token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) throw new HttpError(401, '애플 로그인 정보가 올바르지 않아요');
+  let header;
+  let claims;
+  try {
+    header = b64urlJson(parts[0]);
+    claims = b64urlJson(parts[1]);
+  } catch (e) {
+    throw new HttpError(401, '애플 로그인 정보가 올바르지 않아요');
+  }
+  if (header.alg !== 'RS256') throw new HttpError(401, '애플 로그인 정보가 올바르지 않아요');
+  const jwk = await appleKey(header.kid);
+  if (!jwk) throw new HttpError(401, '애플 로그인 정보가 올바르지 않아요');
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(parts[2]), new TextEncoder().encode(`${parts[0]}.${parts[1]}`));
+  const audiences = String(env.APPLE_AUDIENCES || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (!ok || claims.iss !== 'https://appleid.apple.com' || !audiences.includes(claims.aud)
+    || !(claims.exp * 1000 > Date.now()) || typeof claims.sub !== 'string') {
+    throw new HttpError(401, '애플 로그인 정보가 올바르지 않아요');
+  }
+  return claims.sub;
+}
+
+// Checks a Kakao access token was issued for our app and returns the Kakao user id.
+async function kakaoSubject(env, token) {
+  if (typeof token !== 'string' || !token || token.length > 500) throw new HttpError(401, '카카오 로그인 정보가 올바르지 않아요');
+  const r = await fetch('https://kapi.kakao.com/v1/user/access_token_info', { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new HttpError(401, '카카오 로그인 정보가 올바르지 않아요');
+  const info = await r.json();
+  if (!env.KAKAO_APP_ID || String(info.app_id) !== String(env.KAKAO_APP_ID) || !info.id) {
+    throw new HttpError(401, '카카오 로그인 정보가 올바르지 않아요');
+  }
+  return String(info.id);
+}
+
+const SOCIAL_COLUMN = { apple: 'apple_sub', kakao: 'kakao_id' };
+const socialSubject = (env, provider, body) => (provider === 'apple' ? appleSubject(env, body.identityToken) : kakaoSubject(env, body.accessToken));
+
+async function socialLogin(request, env, provider) {
+  const body = await readJson(request);
+  const subject = await socialSubject(env, provider, body);
+  const col = SOCIAL_COLUMN[provider];
+  const row = await env.DB.prepare(`SELECT id, handle, nickname FROM users WHERE ${col} = ?`).bind(subject).first();
+  if (row) return json({ user: row, token: await newSession(env, row.id) });
+  // First time with this account: the app asks for an @handle and calls again with it.
+  if (!body.handle) return json({ needHandle: true }, 409);
+  const handle = cleanHandle(body.handle);
+  const user = { id: crypto.randomUUID(), handle, nickname: handle.slice(0, 12) };
+  const pw = await hashPassword(randomToken()); // no password until the user sets one
+  try {
+    await env.DB.prepare(`INSERT INTO users (id, handle, nickname, pw_hash, pw_salt, pw_iter, created_at, ${col}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(user.id, handle, user.nickname, pw.pw_hash, pw.pw_salt, pw.pw_iter, Date.now(), subject).run();
+  } catch (e) {
+    if (String(e).includes('UNIQUE')) throw new HttpError(409, '이미 쓰고 있는 아이디예요');
+    throw e;
+  }
+  return json({ user, token: await newSession(env, user.id) }, 201);
+}
+
+// Adds Apple / Kakao to the account that's logged in, so either way gets you back in.
+async function linkSocial(request, env, me, provider) {
+  const subject = await socialSubject(env, provider, await readJson(request));
+  const col = SOCIAL_COLUMN[provider];
+  const owner = await env.DB.prepare(`SELECT id FROM users WHERE ${col} = ?`).bind(subject).first();
+  if (owner && owner.id !== me.id) throw new HttpError(409, '이미 다른 아이디에 연결된 계정이에요');
+  await env.DB.prepare(`UPDATE users SET ${col} = ? WHERE id = ?`).bind(subject, me.id).run();
+  return getMe(env, me);
+}
+
+async function getMe(env, me) {
+  const row = await env.DB.prepare('SELECT apple_sub, kakao_id FROM users WHERE id = ?').bind(me.id).first();
+  return json({ user: me, linked: { apple: Boolean(row && row.apple_sub), kakao: Boolean(row && row.kakao_id) } });
 }
 
 async function login(request, env) {
@@ -586,7 +688,8 @@ async function crewBoard(env, me, crewId, url) {
   const { results: rows } = await env.DB.prepare(`
     SELECT p.user_id, p.date, p.image_key, p.parts,
       (SELECT COUNT(*) FROM cheers h WHERE h.user_id = p.user_id AND h.date = p.date) AS fires,
-      EXISTS (SELECT 1 FROM cheers h WHERE h.user_id = p.user_id AND h.date = p.date AND h.from_id = ?) AS fired
+      EXISTS (SELECT 1 FROM cheers h WHERE h.user_id = p.user_id AND h.date = p.date AND h.from_id = ?) AS fired,
+      (SELECT COUNT(*) FROM proof_comments c WHERE c.user_id = p.user_id AND c.date = p.date) AS comments
     FROM proofs p JOIN crew_members m ON m.user_id = p.user_id AND m.crew_id = ?
     WHERE p.date BETWEEN ? AND ?`).bind(me.id, crewId, lastFrom, to).all();
 
@@ -602,7 +705,7 @@ async function crewBoard(env, me, crewId, url) {
 
   const proofs = rows.filter(r => r.date >= from && r.date <= to).map(r => ({
     userId: r.user_id, date: r.date, image: `/img/${r.image_key}`, parts: JSON.parse(r.parts),
-    fires: r.fires, fired: Boolean(r.fired),
+    fires: r.fires, fired: Boolean(r.fired), comments: r.comments,
   }));
   return json({
     crew: crewOut({ ...c, members: members.length }),
@@ -646,7 +749,7 @@ async function putProof(request, env, me, date) {
     ON CONFLICT (user_id, date) DO UPDATE SET image_key = excluded.image_key, parts = excluded.parts, created_at = excluded.created_at`)
     .bind(me.id, date, key, JSON.stringify(parts), Date.now()).run();
   if (old) await env.IMAGES.delete(old.image_key);
-  return json({ proof: { userId: me.id, date, image: `/img/${key}`, parts, fires: 0, fired: false } });
+  return json({ proof: { userId: me.id, date, image: `/img/${key}`, parts, fires: 0, fired: false, comments: 0 } });
 }
 
 async function deleteProof(env, me, date) {
@@ -655,23 +758,61 @@ async function deleteProof(env, me, date) {
   await env.DB.batch([
     env.DB.prepare('DELETE FROM proofs WHERE user_id = ? AND date = ?').bind(me.id, date),
     env.DB.prepare('DELETE FROM cheers WHERE user_id = ? AND date = ?').bind(me.id, date),
+    env.DB.prepare('DELETE FROM proof_comments WHERE user_id = ? AND date = ?').bind(me.id, date),
   ]);
   await env.IMAGES.delete(old.image_key);
   return json({ ok: true });
 }
 
-async function toggleCheer(env, me, userId, date) {
-  if (userId === me.id) throw new HttpError(400, '내 인증에는 응원할 수 없어요');
-  const shared = await env.DB.prepare(`
+// The proof exists and the viewer is its owner or shares a crew with them.
+async function requireVisibleProof(env, me, userId, date) {
+  const shared = userId === me.id || await env.DB.prepare(`
     SELECT 1 FROM crew_members a JOIN crew_members b ON a.crew_id = b.crew_id
     WHERE a.user_id = ? AND b.user_id = ? LIMIT 1`).bind(me.id, userId).first();
   const proof = shared && await env.DB.prepare('SELECT 1 FROM proofs WHERE user_id = ? AND date = ?').bind(userId, date).first();
   if (!proof) throw new HttpError(404, '인증을 찾을 수 없어요');
+}
+
+async function toggleCheer(env, me, userId, date) {
+  if (userId === me.id) throw new HttpError(400, '내 인증에는 응원할 수 없어요');
+  await requireVisibleProof(env, me, userId, date);
   const del = await env.DB.prepare('DELETE FROM cheers WHERE user_id = ? AND date = ? AND from_id = ?').bind(userId, date, me.id).run();
   const fired = del.meta.changes === 0;
   if (fired) await env.DB.prepare('INSERT INTO cheers (user_id, date, from_id) VALUES (?, ?, ?)').bind(userId, date, me.id).run();
   const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM cheers WHERE user_id = ? AND date = ?').bind(userId, date).first();
   return json({ fired, fires: n });
+}
+
+const COMMENT_MAX = 200;
+
+async function listComments(env, me, userId, date) {
+  await requireVisibleProof(env, me, userId, date);
+  const { results } = await env.DB.prepare(`
+    SELECT c.id, c.body, c.created_at, u.id AS from_id, u.handle FROM proof_comments c JOIN users u ON u.id = c.from_id
+    WHERE c.user_id = ? AND c.date = ? ORDER BY c.created_at LIMIT 200`).bind(userId, date).all();
+  return json({
+    comments: results.map(r => ({
+      id: r.id, body: r.body, createdAt: r.created_at, from: { id: r.from_id, handle: r.handle },
+      canDelete: r.from_id === me.id || userId === me.id,
+    })),
+  });
+}
+
+async function addComment(request, env, me, userId, date) {
+  await requireVisibleProof(env, me, userId, date);
+  const body = cleanText((await readJson(request)).body, COMMENT_MAX, '댓글');
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  await env.DB.prepare('INSERT INTO proof_comments (id, user_id, date, from_id, body, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(id, userId, date, me.id, body, now).run();
+  return json({ comment: { id, body, createdAt: now, from: { id: me.id, handle: me.handle }, canDelete: true } }, 201);
+}
+
+async function deleteComment(env, me, id) {
+  const c = await env.DB.prepare('SELECT from_id, user_id FROM proof_comments WHERE id = ?').bind(id).first();
+  if (!c || (c.from_id !== me.id && c.user_id !== me.id)) throw new HttpError(404, '댓글을 찾을 수 없어요');
+  await env.DB.prepare('DELETE FROM proof_comments WHERE id = ?').bind(id).run();
+  return json({ ok: true });
 }
 
 // ---------- cloud backup (private to the account) ----------
