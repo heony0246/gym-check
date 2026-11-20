@@ -23,7 +23,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.2.0';
+  const APP_VERSION = '1.3.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -560,7 +560,11 @@
         </div>
       </header>
 
-      ${hasUpdate() ? `<div class="banner update"><span>새 버전 v${esc(ui.latestVersion)}이 나왔어요</span><button class="btn small primary" data-action="apply-update">업데이트</button></div>` : ''}
+      ${hasUpdate()
+        ? `<div class="banner update"><span>새 버전 v${esc(ui.latestVersion)}이 나왔어요</span><button class="btn small primary" data-action="apply-update">업데이트</button></div>`
+        : needsReinstall()
+          ? '<div class="banner update"><span>아이콘을 다시 추가하면 화면이 꽉 차요</span><button class="btn small primary" data-action="show-fit">방법</button></div>'
+          : ''}
 
       <section class="hero">
         <div class="hero-top">
@@ -742,6 +746,20 @@
 
     views.settings.innerHTML = `
       <header class="head"><div><p class="kicker">Settings</p><h1>설정</h1></div></header>
+
+      ${needsReinstall() ? `
+      <div class="section-head" id="fit-guide"><h2>화면 꽉 채우기</h2><span class="kicker">Fit</span></div>
+      <div class="group">
+        <p class="install">지금 아이콘은 예전 방식으로 추가돼서 화면 아래가 비어 보여요. 아이콘을 한 번만 다시 추가하면 꽉 차요.<br>
+        <b>1</b> 아래 ‘내보내기’로 기록 백업<br>
+        <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(이때 기록도 같이 지워져요)</small><br>
+        <b>3</b> Safari로 앱 주소를 열고 공유 → ‘홈 화면에 추가’<br>
+        <b>4</b> 새 아이콘에서 설정 → ‘가져오기’로 백업 불러오기</p>
+        <div class="row">
+          <span class="row-label">1단계 · 기록 백업</span>
+          <button class="btn primary" data-action="export">내보내기</button>
+        </div>
+      </div>` : ''}
 
       <div class="section-head"><h2>앱 업데이트</h2><span class="kicker">v${APP_VERSION}</span></div>
       <div class="group">
@@ -945,6 +963,10 @@
       case 'photo-save': savePhoto(); break;
       case 'photo-close': closePhoto(); break;
       case 'apply-update': applyUpdate(); break;
+      case 'show-fit':
+        setTab('settings');
+        requestAnimationFrame(() => { const g = $('#fit-guide'); if (g) g.scrollIntoView({ block: 'start' }); });
+        break;
     }
   });
 
@@ -975,6 +997,23 @@
 
   // ---------- app updates ----------
   const hasUpdate = () => Boolean(ui.latestVersion && ui.latestVersion !== APP_VERSION);
+
+  // Icons added before v1.3.0 used status-bar-style black-translucent, which iOS saves
+  // with the icon. It leaves the bottom of the screen empty (the web view is short by the
+  // status bar height) and only re-adding the icon fixes it. Spot that case so the app
+  // can explain what to do.
+  let safeProbe = null;
+  function needsReinstall() {
+    if (navigator.standalone !== true) return false;
+    if (!safeProbe) {
+      safeProbe = document.createElement('div');
+      safeProbe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top)';
+      document.body.appendChild(safeProbe);
+    }
+    const top = parseFloat(getComputedStyle(safeProbe).paddingTop) || 0;
+    const full = innerHeight >= innerWidth ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+    return top > 20 && full - innerHeight >= top - 2;
+  }
 
   // Returns the version on the server, or null when offline.
   async function fetchLatestVersion() {
@@ -1037,6 +1076,8 @@
     const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
     setTimeout(() => { renderCurrent(); scheduleMidnightRefresh(); }, next - now);
   }
+
+
 
   // ---------- boot ----------
   renderCurrent();

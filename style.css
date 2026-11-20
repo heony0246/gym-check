@@ -73,7 +73,16 @@ input { font: inherit; font-size: 16px; color: inherit; }
 }
 
 /* ---------- shell ---------- */
-.app { height: 100dvh; display: flex; flex-direction: column; }
+/* Pinned to the viewport edges rather than height: 100dvh, which iOS home-screen apps
+   can report wrong. (The bottom gap on iPhone came from status-bar-style
+   black-translucent; index.html now uses black.) */
+html, body { height: 100%; }
+.app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
 .views { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 
 .view {
@@ -579,7 +588,6 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
   z-index: 21;
   max-width: 560px;
   max-height: 86dvh;
