@@ -398,6 +398,26 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
 }
 .pe-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
 .pe-bar .kicker { color: var(--volt); }
+.seg { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--surface); }
+.seg button {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  transition: background-color 160ms, color 160ms;
+}
+.seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--volt); }
+
+/* The photo screen doubles as the monthly recap preview. */
+.photo-editor:not(.recap) .pe-title { display: none; }
+.photo-editor.recap #photo-format,
+.photo-editor.recap .pe-stickers,
+.photo-editor.recap [data-action="photo-retake"] { display: none; }
+.photo-editor.recap #photo-flip { visibility: hidden; }
+.photo-editor.recap .pe-actions { grid-template-columns: 1fr; }
+
 .pe-flip {
   display: flex;
   align-items: center;

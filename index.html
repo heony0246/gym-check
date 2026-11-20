@@ -61,7 +61,11 @@
       <button class="icon-btn" data-action="photo-close" aria-label="닫기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
-      <span class="kicker">오운완</span>
+      <span class="kicker pe-title" id="photo-title">오운완</span>
+      <div class="seg" id="photo-format" role="group" aria-label="사진 비율">
+        <button data-action="photo-format" data-format="orig" aria-pressed="true">원본</button>
+        <button data-action="photo-format" data-format="story" aria-pressed="false">스토리</button>
+      </div>
       <button class="pill pe-flip" id="photo-flip" data-action="photo-flip" aria-pressed="false" aria-label="사진 좌우 반전">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18" stroke-dasharray="2 3"/><path d="M9 7L3 17h6z"/><path d="M15 7l6 10h-6z"/></svg>
         <span>반전</span>

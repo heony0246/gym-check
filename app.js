@@ -25,7 +25,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.7.0';
+  const APP_VERSION = '1.8.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -34,6 +34,7 @@
     check: svg('M5 12.5l4.5 4.5L19 7.5', 3.2),
     prev: svg('M15 5l-7 7 7 7'),
     next: svg('M9 5l7 7-7 7'),
+    chart: svg('M5 20v-7M12 20V5M19 20v-10', 2.2),
     camera: svg('M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5zM12 15.6a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2z', 2.1),
   };
 
@@ -57,7 +58,7 @@
 
   // ---------- state ----------
   function defaultState() {
-    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoSticker: 's1' };
+    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoSticker: 's1', photoFormat: 'orig' };
   }
 
   // Validates anything that comes from storage or a backup file.
@@ -96,6 +97,7 @@
 
     if (Number.isInteger(src.weeklyGoal) && src.weeklyGoal >= 1 && src.weeklyGoal <= 7) out.weeklyGoal = src.weeklyGoal;
     if (src.photoSticker === null || STICKERS.includes(src.photoSticker)) out.photoSticker = src.photoSticker;
+    if (src.photoFormat === 'orig' || src.photoFormat === 'story') out.photoFormat = src.photoFormat;
     if (typeof src.lastBackup === 'string' && !Number.isNaN(Date.parse(src.lastBackup))) out.lastBackup = src.lastBackup;
     return out;
   }
@@ -231,43 +233,100 @@
   }
 
   // ---------- backup ----------
-  async function exportData() {
-    const name = `gym-check-backup-${keyOf(today())}.json`;
-    const payload = JSON.stringify({ app: 'gym-check', exportedAt: new Date().toISOString(), ...state }, null, 2);
-    const file = new File([payload], name, { type: 'application/json' });
+  // The backup file carries records and every saved 오운완 photo (as data URLs).
+  // Building it is async, and iOS only opens the share sheet straight from a tap,
+  // so it's two steps: "내보내기" prepares the file, "저장하기" shares it.
+  let exportFile = null;
+  let exportInfo = null;
+  let exporting = false;
 
-    let done = false;
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: '헬스 체크 백업' });
-        done = true;
-      } catch (e) {
-        if (e && e.name === 'AbortError') return;
+  function blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+  }
+
+  const fmtSize = bytes => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(bytes / 1024))}KB`);
+
+  async function prepareExport() {
+    if (exporting) return;
+    exporting = true;
+    exportFile = null;
+    renderCurrent();
+    toast('백업 파일 만드는 중…');
+    try {
+      const photos = {};
+      if ('indexedDB' in window) {
+        for (const key of await photoStore.keys()) {
+          const blob = await photoStore.full(key);
+          if (blob) photos[key] = await blobToDataURL(blob);
+        }
       }
+      const payload = JSON.stringify({ app: 'gym-check', format: 2, exportedAt: new Date().toISOString(), ...state, photos });
+      exportFile = new File([payload], `gym-check-backup-${keyOf(today())}.json`, { type: 'application/json' });
+      exportInfo = { photos: Object.keys(photos).length, size: exportFile.size };
+      toast('준비됐어요. 저장하기를 눌러 주세요');
+    } catch (e) {
+      toast('백업 파일을 만들지 못했어요');
     }
-    if (!done) downloadFile(file);
+    exporting = false;
+    renderCurrent();
+  }
+
+  async function shareExport() {
+    if (!exportFile) return;
+    if (!(await shareOrDownload(exportFile))) return; // cancelled: keep the file for another try
+    exportFile = null;
+    exportInfo = null;
     state.lastBackup = new Date().toISOString();
     save();
     renderCurrent();
-    toast('백업 파일을 만들었어요');
+    toast('백업 파일을 저장했어요');
+  }
+
+  function exportButton(primary = false) {
+    if (exportFile) return '<button class="btn primary" data-action="export-share">저장하기</button>';
+    return `<button class="btn${primary ? ' primary' : ''}" data-action="export"${exporting ? ' disabled' : ''}>${exporting ? '만드는 중…' : '내보내기'}</button>`;
   }
 
   async function importData(file) {
+    let parsed;
     let next;
     try {
-      next = normalize(JSON.parse(await file.text()));
+      parsed = JSON.parse(await file.text());
+      next = normalize(parsed);
     } catch (e) {
       toast(e instanceof SyntaxError ? '파일을 읽을 수 없어요' : e.message);
       return;
     }
+    const photos = parsed.photos && typeof parsed.photos === 'object'
+      ? Object.entries(parsed.photos).filter(([k, v]) => /^\d{4}-\d{2}-\d{2}$/.test(k) && typeof v === 'string' && v.startsWith('data:image/'))
+      : [];
     const days = Object.keys(next.records).length;
     const nowDays = Object.keys(state.records).length;
-    if (!confirm(`백업 파일: 출석 기록 ${days}일\n지금 기록(${nowDays}일)을 이 파일 내용으로 바꿀까요?`)) return;
+    const msg = `백업 파일: 출석 기록 ${days}일${photos.length ? `, 사진 ${photos.length}장` : ''}\n`
+      + `지금 기록(${nowDays}일)을 이 파일 내용으로 바꿀까요?`
+      + (photos.length ? '\n사진은 지금 있는 사진에 더해지고, 같은 날짜는 파일 사진으로 바뀌어요.' : '');
+    if (!confirm(msg)) return;
     state = next;
     save();
     ui.statsYear = today().getFullYear();
     renderCurrent();
-    toast(`기록 ${days}일을 가져왔어요`);
+
+    let ok = 0;
+    for (const [key, url] of photos) {
+      try {
+        const blob = await (await fetch(url)).blob();
+        await storeDayPhoto(key, blob);
+        ok++;
+      } catch (e) { /* skip a broken photo */ }
+      if (photos.length > 2) toast(`사진 가져오는 중… ${ok}/${photos.length}`);
+    }
+    renderCurrent();
+    toast(`기록 ${days}일${photos.length ? `, 사진 ${ok}장` : ''}을 가져왔어요`);
   }
 
   function downloadFile(file) {
@@ -407,7 +466,35 @@
     return { lens, orientation };
   }
 
-  async function composePhoto(src, stickerId, flip) {
+  // Puts the photo in the frame. Story frames (9:16) take portrait photos edge to edge;
+  // wider photos sit full-width over a blurred, darkened copy of themselves.
+  function drawPhotoFrame(ctx, src, W, H, flip, story) {
+    const pw = src.width;
+    const ph = src.height;
+    const cover = (dx, dy, dw, dh) => {
+      const s = Math.max(dw / pw, dh / ph);
+      ctx.drawImage(src, dx + (dw - pw * s) / 2, dy + (dh - ph * s) / 2, pw * s, ph * s);
+    };
+    ctx.save();
+    if (flip) { ctx.translate(W, 0); ctx.scale(-1, 1); }
+    if (!story) {
+      ctx.drawImage(src, 0, 0, W, H);
+    } else if (pw / ph <= 0.8) {
+      cover(0, 0, W, H);
+    } else {
+      ctx.filter = 'blur(40px)';
+      cover(-80, -80, W + 160, H + 160);
+      ctx.filter = 'none';
+      ctx.fillStyle = 'rgba(0,0,0,.45)';
+      ctx.fillRect(0, 0, W, H);
+      const h = W * ph / pw;
+      ctx.drawImage(src, 0, (H - h) / 2, W, h);
+    }
+    ctx.restore();
+  }
+
+  async function composePhoto(src, stickerId, flip, format) {
+    const story = format === 'story';
     const t = photoKey ? parseKey(photoKey) : today();
     const tk = keyOf(t);
     const done = new Set(dayParts(tk));
@@ -425,26 +512,24 @@
       ensurePhotoFonts(headline + dateLine + badgeText),
     ]);
 
-    const scale = Math.min(1, 1600 / Math.max(src.width, src.height));
-    const W = Math.round(src.width * scale);
-    const H = Math.round(src.height * scale);
+    let W = 1080;
+    let H = 1920;
+    if (!story) {
+      const scale = Math.min(1, 1600 / Math.max(src.width, src.height));
+      W = Math.round(src.width * scale);
+      H = Math.round(src.height * scale);
+    }
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
-    if (flip) {
-      // Mirror only the photo; the date, text and character stay readable.
-      ctx.save();
-      ctx.translate(W, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(src, 0, 0, W, H);
-      ctx.restore();
-    } else {
-      ctx.drawImage(src, 0, 0, W, H);
-    }
+    drawPhotoFrame(ctx, src, W, H, flip, story);
 
     const u = Math.min(W, H) / 100;
-    const m = 6 * u; // margin
+    const m = 6 * u; // side margin
+    // Instagram lays its own UI over the top and bottom of a story; keep clear of it.
+    const top = story ? Math.round(H * 0.11) : m;
+    const bottom = story ? Math.round(H * 0.13) : m;
 
     // Darken top and bottom so the text reads on any photo.
     let g = ctx.createLinearGradient(0, H * 0.45, 0, H);
@@ -452,11 +537,12 @@
     g.addColorStop(1, 'rgba(0,0,0,.75)');
     ctx.fillStyle = g;
     ctx.fillRect(0, H * 0.45, W, H * 0.55);
-    g = ctx.createLinearGradient(0, 0, 0, Math.max(H * 0.2, 22 * u));
+    const topShade = Math.max(H * 0.2, top + 22 * u);
+    g = ctx.createLinearGradient(0, 0, 0, topShade);
     g.addColorStop(0, 'rgba(0,0,0,.45)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, Math.max(H * 0.2, 22 * u));
+    ctx.fillRect(0, 0, W, topShade);
 
     // Top left: date.
     ctx.textBaseline = 'middle';
@@ -465,14 +551,14 @@
     ctx.fillStyle = '#FFFFFF';
     ctx.font = `italic 800 ${5.6 * u}px "Barlow Condensed", sans-serif`;
     const badgeH = 7.6 * u;
-    const rowY = m + badgeH / 2;
+    const rowY = top + badgeH / 2;
     ctx.fillText(dateLine, m, rowY);
 
     // Top right: this year's count, "30/365".
     ctx.shadowBlur = 0;
     ctx.font = `italic 800 ${5.4 * u}px "Barlow Condensed", ${KR}`;
     const badgeW = ctx.measureText(badgeText).width + 5.6 * u;
-    roundRect(ctx, W - m - badgeW, m, badgeW, badgeH, badgeH / 2);
+    roundRect(ctx, W - m - badgeW, top, badgeW, badgeH, badgeH / 2);
     ctx.fillStyle = VOLT;
     ctx.fill();
     ctx.fillStyle = '#0A0A0B';
@@ -484,7 +570,7 @@
     let textMaxW = W - m * 2;
     if (sticker) {
       const portrait = H >= W;
-      const maxH = H * (portrait ? 0.44 : 0.66);
+      const maxH = H * (story ? 0.34 : portrait ? 0.44 : 0.66);
       // Lying/wide poses (crunch) get more width so they don't end up tiny.
       const wide = sticker.naturalWidth > sticker.naturalHeight;
       const maxSW = W * (portrait ? (wide ? 0.46 : 0.36) : (wide ? 0.38 : 0.3));
@@ -492,7 +578,7 @@
       const sw = sticker.naturalWidth * k;
       const sh = sticker.naturalHeight * k;
       const sx = W - sw - m * 0.5;
-      const sy = H - sh - m * 0.3;
+      const sy = H - sh - (story ? bottom - 4 * u : m * 0.3);
       ctx.save();
       ctx.shadowColor = 'rgba(0,0,0,.45)';
       ctx.shadowBlur = 3 * u;
@@ -506,7 +592,7 @@
     ctx.textBaseline = 'alphabetic';
     ctx.shadowColor = 'rgba(0,0,0,.35)';
     ctx.shadowBlur = 2 * u;
-    let y = H - m;
+    let y = H - bottom;
     const { size, lines } = fitHeadline(ctx, headline, textMaxW, 17 * u, 9 * u);
     ctx.font = `italic 900 ${size}px "Barlow Condensed", ${KR}`;
     ctx.fillStyle = VOLT;
@@ -515,9 +601,179 @@
       y -= size * 0.9;
     }
 
+    return canvasToJpeg(canvas);
+  }
+
+  function canvasToJpeg(canvas) {
     return new Promise((resolve, reject) => {
       canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', 0.92);
     });
+  }
+
+  // ---- monthly recap card (1080×1920, story size) ----
+  const MONTH_EN = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+
+  function monthSummary(y, mo) {
+    const t = today();
+    const tk = keyOf(t);
+    const dim = new Date(y, mo + 1, 0).getDate();
+    const keys = Array.from({ length: dim }, (_, i) => keyOf(new Date(y, mo, i + 1)));
+    const counts = {};
+    let days = 0;
+    let run = 0;
+    let best = 0;
+    for (const k of keys) {
+      if (k > tk) break;
+      const arr = dayParts(k);
+      if (arr.length) {
+        days++;
+        run++;
+        best = Math.max(best, run);
+        for (const id of arr) counts[id] = (counts[id] || 0) + 1;
+      } else {
+        run = 0;
+      }
+    }
+    const isCur = y === t.getFullYear() && mo === t.getMonth();
+    const elapsed = isCur ? t.getDate() : dim;
+    const top = state.parts
+      .map(p => ({ p, n: counts[p.id] || 0 }))
+      .sort((a, b) => b.n - a.n)[0];
+    return { keys, dim, days, best, rate: pct(days, elapsed), top: top && top.n ? top : null, tk };
+  }
+
+  async function composeRecap(y, mo) {
+    const W = 1080;
+    const H = 1920;
+    const P = 90;
+    const KR = '"Pretendard Variable", sans-serif';
+    const s = monthSummary(y, mo);
+    const topText = s.top ? `${s.top.p.name} ${s.top.n}회` : '-';
+    const kicker = `${MONTH_EN[mo]} ${y} · RECAP`;
+
+    const thumbs = new Map();
+    await Promise.all(s.keys.filter(k => photoThumbs.has(k)).map(async k => {
+      const img = new Image();
+      img.src = photoThumbs.get(k);
+      try { await img.decode(); thumbs.set(k, img); } catch (e) { /* skip */ }
+    }));
+    const [sticker] = await Promise.all([
+      state.photoSticker ? loadSticker(state.photoSticker) : null,
+      ensurePhotoFonts(`${kicker}${mo + 1}월 결산헬스장 간 날출석률최장 연속최다 부위${topText}월화수목금토일GYM CHECK0123456789/%일`),
+    ]);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0A0A0B';
+    ctx.fillRect(0, 0, W, H);
+    const glow = ctx.createRadialGradient(W * 0.15, H * 0.2, 0, W * 0.15, H * 0.2, W);
+    glow.addColorStop(0, 'rgba(212,255,63,.14)');
+    glow.addColorStop(1, 'rgba(212,255,63,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+
+    // Character on the right of the big number.
+    if (sticker) {
+      const k = Math.min(520 / sticker.naturalHeight, 420 / sticker.naturalWidth);
+      const sw = sticker.naturalWidth * k;
+      const sh = sticker.naturalHeight * k;
+      ctx.drawImage(sticker, W - P * 0.6 - sw, 680 - sh, sw, sh);
+    }
+
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = VOLT;
+    ctx.font = `700 40px "Barlow Condensed", ${KR}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '6px';
+    ctx.fillText(kicker, P, 200);
+    if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+    ctx.fillStyle = '#F4F4F0';
+    ctx.font = `800 84px ${KR}`;
+    ctx.fillText(`${mo + 1}월 결산`, P, 300);
+
+    // Big number: days at the gym this month.
+    ctx.fillStyle = VOLT;
+    ctx.font = `italic 900 330px "Barlow Condensed", ${KR}`;
+    const num = String(s.days);
+    ctx.fillText(num, P - 8, 610);
+    const nw = ctx.measureText(num).width;
+    ctx.fillStyle = '#8E8E94';
+    ctx.font = `italic 800 92px "Barlow Condensed", ${KR}`;
+    ctx.fillText(`/${s.dim}`, P + nw + 4, 610);
+    ctx.font = `600 40px ${KR}`;
+    ctx.fillText('헬스장 간 날', P, 675);
+
+    // Three stats.
+    const stats = [['출석률', `${s.rate}%`], ['최장 연속', `${s.best}일`], ['최다 부위', topText]];
+    const colW = (W - P * 2) / 3;
+    stats.forEach(([label, value], i) => {
+      const x = P + i * colW;
+      ctx.fillStyle = '#8E8E94';
+      ctx.font = `600 32px ${KR}`;
+      ctx.fillText(label, x, 760);
+      ctx.fillStyle = '#F4F4F0';
+      let size = 64;
+      ctx.font = `italic 800 ${size}px "Barlow Condensed", ${KR}`;
+      while (ctx.measureText(value).width > colW - 24 && size > 36) {
+        size -= 2;
+        ctx.font = `italic 800 ${size}px "Barlow Condensed", ${KR}`;
+      }
+      ctx.fillText(value, x, 832);
+    });
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.fillRect(P, 880, W - P * 2, 2);
+
+    // Month calendar: gym days in lime, days with a saved 오운완 photo show the photo.
+    const cell = (W - P * 2) / 7;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#8E8E94';
+    ctx.font = `600 30px ${KR}`;
+    '월화수목금토일'.split('').forEach((d, i) => ctx.fillText(d, P + cell * i + cell / 2, 950));
+    const lead = (new Date(y, mo, 1).getDay() + 6) % 7;
+    const rowH = 112;
+    const r = 46;
+    ctx.textBaseline = 'middle';
+    s.keys.forEach((k, i) => {
+      const pos = lead + i;
+      const cx = P + (pos % 7) * cell + cell / 2;
+      const cy = 1030 + Math.floor(pos / 7) * rowH;
+      const on = attended(k);
+      const img = thumbs.get(k);
+      if (img) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, cx - r, cy - r, r * 2, r * 2);
+        ctx.restore();
+        ctx.strokeStyle = VOLT;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (on) {
+        ctx.fillStyle = VOLT;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0A0A0B';
+        ctx.font = `italic 800 38px "Barlow Condensed", ${KR}`;
+        ctx.fillText(String(i + 1), cx, cy + 2);
+      } else {
+        ctx.fillStyle = k > s.tk ? '#2B2B2F' : '#55555B';
+        ctx.font = `italic 700 36px "Barlow Condensed", ${KR}`;
+        ctx.fillText(String(i + 1), cx, cy + 2);
+      }
+    });
+
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#55555B';
+    ctx.font = `700 30px "Barlow Condensed", ${KR}`;
+    ctx.fillText('GYM CHECK', W / 2, 1790);
+    ctx.textAlign = 'left';
+
+    return canvasToJpeg(canvas);
   }
 
   const photoEditor = $('#photo-editor');
@@ -548,7 +804,53 @@
     $('#photo-input').click();
   }
 
+  function syncFormatButtons() {
+    document.querySelectorAll('#photo-format button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.format === state.photoFormat)));
+  }
+
+  function pickFormat(format) {
+    if (format !== 'orig' && format !== 'story') return;
+    state.photoFormat = format;
+    save();
+    syncFormatButtons();
+    renderPhoto();
+  }
+
+  // Recap mode reuses the photo screen to preview and share a monthly recap card.
+  let recapMode = false;
+  let recapFile = null;
+
+  async function openRecap() {
+    const y = ui.calMonth.getFullYear();
+    const mo = ui.calMonth.getMonth();
+    if (!monthSummary(y, mo).days) { toast('이 달은 운동 기록이 없어요'); return; }
+    recapMode = true;
+    recapFile = null;
+    photoEditor.classList.add('recap');
+    $('#photo-title').textContent = `${mo + 1}월 결산`;
+    photoEditor.hidden = false;
+    photoPreview.hidden = true;
+    photoLoading.hidden = false;
+    photoLoading.textContent = '결산 카드 만드는 중…';
+    photoSaveBtn.disabled = true;
+    try {
+      const blob = await composeRecap(y, mo);
+      if (!recapMode) return;
+      recapFile = new File([blob], `gym-check-${y}-${pad(mo + 1)}.jpg`, { type: 'image/jpeg' });
+      if (photoUrl) URL.revokeObjectURL(photoUrl);
+      photoUrl = URL.createObjectURL(blob);
+      photoPreview.src = photoUrl;
+      await photoPreview.decode().catch(() => {});
+      photoPreview.hidden = false;
+      photoLoading.hidden = true;
+      photoSaveBtn.disabled = false;
+    } catch (e) {
+      photoLoading.textContent = '결산 카드를 만들지 못했어요';
+    }
+  }
+
   function renderStickerPicker() {
+    syncFormatButtons();
     const cur = state.photoSticker;
     photoStickers.innerHTML =
       `<button class="pe-sticker none" data-action="photo-sticker" data-id="" aria-pressed="${!cur}" aria-label="캐릭터 없이">없음</button>` +
@@ -576,7 +878,7 @@
       photoLoading.textContent = '사진 만드는 중…';
     }
     try {
-      const blob = await composePhoto(photoSource, state.photoSticker, photoFlip);
+      const blob = await composePhoto(photoSource, state.photoSticker, photoFlip, state.photoFormat);
       if (seq !== photoSeq) return; // a newer pick is already rendering
       photoBlob = blob;
       if (photoUrl) URL.revokeObjectURL(photoUrl);
@@ -615,6 +917,9 @@
 
   function closePhoto() {
     photoEditor.hidden = true;
+    photoEditor.classList.remove('recap');
+    recapMode = false;
+    recapFile = null;
     setPhotoFlip(false);
     photoSeq++;
     photoPreview.removeAttribute('src');
@@ -626,6 +931,10 @@
   }
 
   async function savePhoto() {
+    if (recapMode) {
+      if (recapFile) shareOrDownload(recapFile);
+      return;
+    }
     if (!photoBlob) return;
     const key = photoKey || keyOf(today());
     const blob = photoBlob;
@@ -681,6 +990,10 @@
       remove: key => run(['full', 'thumb'], 'readwrite', tx => {
         tx.objectStore('full').delete(key);
         tx.objectStore('thumb').delete(key);
+      }),
+      keys: () => run('full', 'readonly', (tx, done) => {
+        const r = tx.objectStore('full').getAllKeys();
+        r.onsuccess = () => done(r.result || []);
       }),
       thumbs: () => run('thumb', 'readonly', (tx, done) => {
         const list = [];
@@ -961,6 +1274,7 @@
         <div class="cal-grid">${cells}</div>
       </div>
       <div class="legend">${legend}</div>
+      <button class="photo-cta${attendedDays ? '' : ' idle'}" data-action="recap">${ICON.chart}<span>${mo + 1}월 결산 카드 만들기</span></button>
       <p class="note">날짜를 누르면 그날 기록을 고칠 수 있어요. 옆으로 밀면 달이 바뀌어요.</p>`;
   }
 
@@ -1058,12 +1372,12 @@
       <div class="group">
         <p class="install">지금 아이콘은 예전 방식으로 추가돼서 화면 아래가 비어 보여요. 아이콘을 한 번만 다시 추가하면 꽉 차요.<br>
         <b>1</b> 아래 ‘내보내기’로 기록 백업<br>
-        <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(이때 기록과 앱에 저장한 사진도 같이 지워져요)</small><br>
+        <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(이때 기록과 사진도 같이 지워져요. 1단계 백업에 사진도 들어가요)</small><br>
         <b>3</b> Safari로 앱 주소를 열고 <b>새로고침(↻) 한 번</b> → 공유 → ‘홈 화면에 추가’<br>
         <b>4</b> 새 아이콘에서 설정 → ‘가져오기’로 백업 불러오기</p>
         <div class="row">
           <span class="row-label">1단계 · 기록 백업</span>
-          <button class="btn primary" data-action="export">내보내기</button>
+          ${exportButton(true)}
         </div>
       </div>` : ''}
 
@@ -1102,15 +1416,15 @@
       <div class="section-head"><h2>백업</h2><span class="kicker">Backup</span></div>
       <div class="group">
         <div class="row">
-          <span class="row-label">기록 내보내기<small>${lastBackup}</small></span>
-          <button class="btn" data-action="export">내보내기</button>
+          <span class="row-label">기록 내보내기<small>${exportFile ? `준비 완료 · 사진 ${exportInfo.photos}장 · ${fmtSize(exportInfo.size)}` : lastBackup}</small></span>
+          ${exportButton()}
         </div>
         <div class="row">
           <span class="row-label">기록 가져오기<small>지금 기록을 백업 파일 내용으로 바꿔요</small></span>
           <button class="btn" data-action="import">가져오기</button>
         </div>
       </div>
-      <p class="note tight">기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 앱에 저장한 오운완 사진은 백업 파일에 들어가지 않으니, 남기고 싶은 사진은 앨범에도 저장해 두세요.</p>
+      <p class="note tight">기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 백업 파일에는 기록과 앱에 저장한 오운완 사진이 함께 들어가요.</p>
 
       ${standalone ? '' : `
       <div class="section-head"><h2>홈 화면에 추가</h2><span class="kicker">Install</span></div>
@@ -1276,7 +1590,13 @@
         document.querySelectorAll('.swatch').forEach(s => s.setAttribute('aria-pressed', String(s === el)));
         break;
       case 'delete-part': deletePart(id); break;
-      case 'export': exportData(); break;
+      case 'export':
+        if (ui.tab !== 'settings') setTab('settings');
+        prepareExport();
+        break;
+      case 'export-share': shareExport(); break;
+      case 'photo-format': pickFormat(el.dataset.format); break;
+      case 'recap': openRecap(); break;
       case 'import': $('#import-file').click(); break;
       case 'update': manualUpdate(); break;
       case 'photo': startPhoto(); break;
