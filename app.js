@@ -592,7 +592,7 @@
   }
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '2.3.3';
+  const APP_VERSION = '2.4.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -605,6 +605,8 @@
     refresh: svg('M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', 2.2),
     plus: svg('M12 5v14M5 12h14', 2.4),
     close: svg('M6 6l12 12M18 6L6 18', 2.4),
+    pencil: svg('M4 20h4L18.6 9.4a2.1 2.1 0 0 0-3-3L5 17v3zM13.5 8.5l2 2', 2.1),
+    trash: svg('M4.5 7h15M10 11v5.5M14 11v5.5M6.5 7l.8 11.6A1.6 1.6 0 0 0 8.9 20h6.2a1.6 1.6 0 0 0 1.6-1.4L17.5 7M9.5 7V4.5h5V7', 2.1),
     camera: svg('M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5zM12 15.6a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2z', 2.1),
   };
 
@@ -628,7 +630,7 @@
 
   // ---------- state ----------
   function defaultState() {
-    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoFormat: 'orig', social: null, cloud: { syncedAt: 0, dirty: false }, logs: {}, customEx: [] };
+    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoFormat: 'orig', social: null, owner: null, cloud: { syncedAt: 0, dirty: false }, logs: {}, customEx: [] };
   }
 
   // Validates anything that comes from storage or a backup file.
@@ -702,6 +704,14 @@
         crewWins: Number.isInteger(so.crewWins) && so.crewWins >= 0 ? so.crewWins : 0,
       };
     }
+    // Whose records these are: set on login, kept after logout, so logging in as someone
+    // else never merges them into that account. (Older saves: the logged-in account.)
+    const ow = src.owner;
+    if (ow && typeof ow.id === 'string' && ow.id.length <= 64 && typeof ow.handle === 'string') {
+      out.owner = { id: ow.id, handle: ow.handle.slice(0, 20) };
+    } else if (out.social) {
+      out.owner = { id: out.social.userId, handle: out.social.handle };
+    }
     if (typeof src.lastBackup === 'string' && !Number.isNaN(Date.parse(src.lastBackup))) out.lastBackup = src.lastBackup;
     if (src.cloud && Number.isFinite(src.cloud.syncedAt)) out.cloud = { syncedAt: src.cloud.syncedAt, dirty: src.cloud.dirty === true };
     return out;
@@ -734,11 +744,14 @@
   let state = load();
   // Cloud backup bookkeeping (see "cloud backup" below). sig = what the server last
   // got from us (or what we last loaded), to notice when records actually change.
-  const cloud = { sig: cloudSig(), timer: 0, pushing: null, again: false, syncing: null, lastPull: 0, note: '' };
+  // photosOnServer / photoFails: day photos the server has, and ones that failed to upload.
+  const cloud = { sig: cloudSig(), timer: 0, pushing: null, again: false, syncing: null, lastPull: 0, note: '', photosKnown: false, photosOnServer: new Set(), photoFails: new Set() };
   const ui = {
     tab: 'today',
     calMonth: firstOfMonth(today()),
     statsYear: today().getFullYear(),
+    statsPage: (() => { try { const p = localStorage.getItem('gymcheck:statsPage'); return ['summary', 'badges', 'lifts'].includes(p) ? p : 'summary'; } catch (e) { return 'summary'; } })(),
+    badgeSheet: null, // the badge shown in the bottom sheet
     sheetDate: null,
     partSheet: null, // { id (null = new), color } while the part sheet is open
     exSheet: null, // the exercise picker / set editor / history in the bottom sheet
@@ -746,6 +759,7 @@
     latestVersion: null,
     updating: false,
     pwForm: false, // settings: the change-password form is open
+    delForm: null, // settings: the delete-account form ({ passwordSet, busy }) while open
   };
 
   // ---------- queries ----------
@@ -1072,7 +1086,9 @@
           if (blob) photos[key] = await blobToDataURL(blob);
         }
       }
-      const payload = JSON.stringify({ app: 'gym-check', format: 2, exportedAt: new Date().toISOString(), ...state, photos });
+      // Records and photos only: the login token and sync status stay on this phone.
+      const { social: _social, owner: _owner, cloud: _cloud, ...data } = state;
+      const payload = JSON.stringify({ app: 'gym-check', format: 2, exportedAt: new Date().toISOString(), ...data, photos });
       exportFile = new File([payload], `gym-check-backup-${keyOf(today())}.json`, { type: 'application/json' });
       exportInfo = { photos: Object.keys(photos).length, size: exportFile.size };
       toast('준비됐어요. 저장하기를 눌러 주세요');
@@ -1112,16 +1128,16 @@
     const photos = parsed.photos && typeof parsed.photos === 'object'
       ? Object.entries(parsed.photos).filter(([k, v]) => /^\d{4}-\d{2}-\d{2}$/.test(k) && typeof v === 'string' && v.startsWith('data:image/'))
       : [];
-    // A backup made before signing up has no login: keep the one this phone has.
-    if (!next.social && state.social) next.social = state.social;
+    // A file never logs anyone in (older ones carried a token; it's ignored): this phone
+    // keeps its own login, and the records become that account's.
+    next.social = state.social;
+    next.owner = state.social ? state.owner : null;
     next.cloud = state.cloud; // this phone's sync status, not the file's
-    const switchesAccount = next.social && (!state.social || next.social.userId !== state.social.userId);
     const days = Object.keys(next.records).length;
     const nowDays = Object.keys(state.records).length;
     const msg = `백업 파일: 출석 기록 ${days}일${photos.length ? `, 사진 ${photos.length}장` : ''}\n`
       + `지금 기록(${nowDays}일)을 이 파일 내용으로 바꿀까요?`
-      + (photos.length ? '\n사진은 지금 있는 사진에 더해지고, 같은 날짜는 파일 사진으로 바뀌어요.' : '')
-      + (switchesAccount ? `\n@${next.social.handle} 계정으로 로그인돼요.` : '');
+      + (photos.length ? '\n사진은 지금 있는 사진에 더해지고, 같은 날짜는 파일 사진으로 바뀌어요.' : '');
     if (!confirm(msg)) return;
     state = next;
     save();
@@ -1713,6 +1729,13 @@
       const exif = await exifOf(file);
       setPhotoFlip(isUnmirroredSelfie(exif));
       photoTaken = takenKey(exif, file);
+      // Forgot to shoot that day, but the phone's camera has a photo from it: the photo's
+      // own taken-date (EXIF) moves it to that day, if that day has a workout checked.
+      const exifDay = exif && /^\d{4}-\d{2}-\d{2}$/.test(exif.taken) ? exif.taken : null;
+      if (exifDay && exifDay !== photoKey && exifDay <= keyOf(today()) && attended(exifDay)) {
+        photoKey = exifDay;
+        toast(`사진 찍은 날 ${md(exifDay)}로 올려요`);
+      }
     } catch (e) {
       photoLoading.textContent = '이 사진은 열 수 없어요. 다른 사진을 골라 주세요';
       return;
@@ -1753,16 +1776,20 @@
     await shareOrDownload(new File([blob], `owoonwan-${key}.jpg`, { type: 'image/jpeg' }));
     const ok = await stored;
     let proof = null;
+    let backup = Promise.resolve(null);
     if (ok) {
-      cloudPutPhoto(key);
+      if (loggedIn()) backup = cloudPutPhoto(key);
       cheer.queued.push(...newBadges(badgesBefore));
-      if (key === keyOf(today()) && loggedIn()) proof = await sendProof(key, blob, taken);
+      if (inThisWeek(key) && loggedIn()) proof = await sendProof(key, blob, taken);
     }
+    const backedUp = await backup;
     renderCurrent();
+    const bk = backedUp === false ? ' · 서버 백업은 실패했어요' : '';
     if (!ok) toast('앱에 저장하지 못했어요. 사진은 앨범에 저장해 두세요');
-    else if (proof === 'ok') toast(`${md(key)} 오운완 저장 · 크루 인증 완료`);
-    else if (proof === 'old') toast('저장했어요. 크루 인증은 오늘 찍은 사진만 돼요');
+    else if (proof === 'ok') toast(`${md(key)} 오운완 저장 · 크루 인증 완료${bk}`);
+    else if (proof === 'old') toast(`저장했어요. 크루 인증은 그날 찍은 사진만 돼요${bk}`);
     else if (proof) toast(`저장했어요. 크루 인증은 못 했어요: ${proof}`);
+    else if (backedUp === false) toast(`${md(key)} 오운완 저장 · 서버 백업은 실패했어요. 설정 → 지금 저장으로 다시 올려 주세요`);
     else toast(`${md(key)} 오운완으로 저장했어요`);
   }
 
@@ -1913,15 +1940,19 @@
     }
     setThumb(k, null);
     clearSheetPhoto();
+    cloud.photosOnServer.delete(k);
+    cloud.photoFails.delete(k);
     renderCurrent();
     toast('사진을 지웠어요');
     if (loggedIn()) api(`/api/backup/photos/${k}`, { method: 'DELETE' }).catch(() => { /* next sync may bring it back */ });
-    if (loggedIn() && k === keyOf(today())) {
+    if (loggedIn() && inThisWeek(k)) {
       api(`/api/proofs/${k}`, { method: 'DELETE' }).then(() => { crew.stale = true; }, () => { /* stays proven */ });
     }
   }
 
   const md = key => { const d = parseKey(key); return `${d.getMonth() + 1}월 ${d.getDate()}일`; };
+  // Monday through today: a crew proof can still be for any of these, if the photo is from that day.
+  const inThisWeek = key => key >= weekRange().from && key <= keyOf(today());
 
   // ---------- exercise log (optional) ----------
   // Sets × kg per exercise per day, on top of the plain check-in. The bottom sheet
@@ -2000,8 +2031,16 @@
     const rows = list.map(e => {
       const ex = exById(e.ex);
       if (!ex) return '';
-      return `<button class="log-row" data-action="ex-edit" data-ex="${esc(e.ex)}" data-date="${date}" data-from="${from}">
-          <span><b>${esc(shortName(ex.name))}</b><small>${esc(logSummary(ex, e.sets))}</small></span>${ICON.next}</button>`;
+      const at = `data-ex="${esc(e.ex)}" data-date="${date}" data-from="${from}"`;
+      // Tap to edit; swipe left for 수정 / 삭제, like the iOS app.
+      return `<div class="swipe">
+          <div class="swipe-actions">
+            <button class="swipe-btn" data-action="ex-edit" ${at}>${ICON.pencil}<span>수정</span></button>
+            <button class="swipe-btn danger" data-action="log-delete" ${at}>${ICON.trash}<span>삭제</span></button>
+          </div>
+          <button class="log-row swipe-front" data-action="ex-edit" ${at}>
+            <span><b>${esc(shortName(ex.name))}</b><small>${esc(logSummary(ex, e.sets))}</small></span>${ICON.next}</button>
+        </div>`;
     }).join('');
     return `<div class="log-block">${rows}
         <button class="log-add" data-action="ex-add" data-date="${date}" data-from="${from}">${ICON.plus}<span>${list.length ? '종목 추가' : '종목·무게 기록하기'}</span>${list.length ? '' : '<small>선택</small>'}</button>
@@ -2253,6 +2292,17 @@
     renderCurrent();
   }
 
+  // 삭제 from a swiped row: no editor open, so nothing to go back to.
+  function deleteLog(date, exId) {
+    const list = state.logs[date] || [];
+    if (!list.some(e => e.ex === exId)) return;
+    const rest = list.filter(e => e.ex !== exId);
+    if (rest.length) state.logs[date] = rest; else delete state.logs[date];
+    save();
+    toast('기록을 지웠어요');
+    renderCurrent();
+  }
+
   // After saving or deleting, go back to where the editor was opened from.
   function leaveExercise(x) {
     if (x.back === 'history') openExerciseHistory(x.ex);
@@ -2301,7 +2351,7 @@
   // ---------- account & server ----------
   // An @handle + password account keeps the records and 오운완 photos on the server
   // (a Cloudflare Worker), so a new phone gets everything back on login. This device
-  // keeps a session token in state.social (so a backup also restores the login).
+  // keeps a session token in state.social (never written into a backup file).
   const LOCAL_API = ['localhost', '127.0.0.1'].includes(location.hostname);
   const API_BASE = LOCAL_API ? 'http://localhost:8787' : 'https://gymchek-api.savetoyou365.workers.dev';
   const HANDLE_RE = /^(?!\.)(?!.*\.$)[a-z0-9._]{3,20}$/;
@@ -2362,6 +2412,9 @@
     state.cloud = { syncedAt: 0, dirty: false };
     cloud.sig = cloudSig();
     cloud.lastPull = 0;
+    cloud.photosKnown = false;
+    cloud.photosOnServer = new Set();
+    cloud.photoFails = new Set();
   }
 
   async function cloudPush() {
@@ -2471,6 +2524,9 @@
     let local;
     try { local = await photoStore.keys(); } catch (e) { return; }
     const onServer = new Set(serverDates);
+    cloud.photosOnServer = new Set(serverDates);
+    cloud.photosKnown = true;
+    for (const k of [...cloud.photoFails]) if (onServer.has(k) || !local.includes(k)) cloud.photoFails.delete(k);
     const here = new Set(local);
     const down = serverDates.filter(k => !here.has(k));
     const up = local.filter(k => !onServer.has(k));
@@ -2497,21 +2553,49 @@
     }
   }
 
+  // Uploads one day's photo; remembers the outcome so Settings and the day sheet can say
+  // whether the server has it (the next sync retries whatever's missing).
   async function cloudPutPhoto(key) {
     if (!loggedIn()) return false;
+    let ok = false;
     try {
       const blob = await photoStore.full(key);
       if (!blob) return false;
       await api(`/api/backup/photos/${key}`, { method: 'PUT', raw: blob });
-      return true;
-    } catch (e) {
-      return false; // the next sync uploads whatever is missing
+      ok = true;
+    } catch (e) { /* noted below */ }
+    if (ok) {
+      cloud.photosOnServer.add(key);
+      cloud.photoFails.delete(key);
+    } else {
+      cloud.photoFails.add(key);
     }
+    updateCloudStatus();
+    if (ui.sheetDate === key) renderSheet();
+    return ok;
+  }
+
+  // What the day sheet says under a saved photo.
+  function photoStatusHtml(key) {
+    if (!loggedIn()) return '<p class="photo-status">이 폰에만 저장돼 있어요 · 로그인하면 서버에도 저장돼요</p>';
+    if (cloud.photoFails.has(key)) {
+      return '<p class="photo-status warn">서버에 못 올렸어요 <button class="link-btn" data-action="day-photo-retry">다시 올리기</button></p>';
+    }
+    if (cloud.photosOnServer.has(key)) return '<p class="photo-status ok">서버에도 저장됨</p>';
+    return `<p class="photo-status">${cloud.photosKnown ? '서버에 올리는 중…' : '서버 저장 확인 중…'}</p>`;
+  }
+
+  async function retryDayPhoto() {
+    const k = ui.sheetDate;
+    if (!k) return;
+    const ok = await cloudPutPhoto(k);
+    toast(ok ? '서버에 올렸어요' : '이번에도 못 올렸어요. 인터넷 연결을 확인해 주세요');
   }
 
   function cloudStatusText() {
     if (cloud.note) return cloud.note;
     if (cloud.syncing || cloud.pushing) return '저장 중…';
+    if (cloud.photoFails.size) return `사진 ${cloud.photoFails.size}장을 서버에 못 올렸어요 · 지금 저장으로 다시 시도`;
     if (state.cloud.dirty) return '저장 대기 중 · 인터넷이 연결되면 저장돼요';
     if (!state.cloud.syncedAt) return '아직 저장 전';
     const d = new Date(state.cloud.syncedAt);
@@ -2532,7 +2616,9 @@
     if (!state.cloud.dirty) state.cloud.dirty = true; // force a fresh upload of the records
     const ok = await cloudSync();
     if (btn) btn.disabled = false;
-    toast(ok ? '서버에 저장했어요' : '저장하지 못했어요. 인터넷 연결을 확인해 주세요');
+    if (!ok) toast('저장하지 못했어요. 인터넷 연결을 확인해 주세요');
+    else if (cloud.photoFails.size) toast(`기록은 저장했어요. 사진 ${cloud.photoFails.size}장은 못 올렸어요`);
+    else toast('서버에 저장했어요');
   }
 
   // ---- account ----
@@ -2545,6 +2631,7 @@
     account.auth = 'login';
     account.form = { handle: handle || '', password: '' };
     ui.pwForm = false;
+    ui.delForm = null;
     renderCurrent();
   }
 
@@ -2575,6 +2662,20 @@
       const { user, token } = login
         ? await api('/api/login', { method: 'POST', body: { handle, password } })
         : await api('/api/users', { method: 'POST', body: { handle, nickname: handle.slice(0, 12), password } });
+      // Records left by a different account are swapped out, not merged into this one.
+      const prev = state.owner;
+      if (prev && prev.id !== user.id && hasLocalData()) {
+        const ok = confirm(`이 폰에는 @${prev.handle} 기록이 있어요.\n@${user.handle}로 로그인하면 이 폰의 기록·사진이 @${user.handle} 것으로 바뀌어요.\n@${prev.handle} 기록은 서버에 그대로 있어요.`);
+        if (!ok) {
+          fetch(API_BASE + '/api/session', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => { /* expires unused */ });
+          account.busy = false;
+          account.form.password = '';
+          renderCurrent();
+          return;
+        }
+        await clearLocalData();
+      }
+      state.owner = { id: user.id, handle: user.handle };
       state.social = { token, userId: user.id, handle: user.handle, nickname: user.nickname };
       resetCloud();
       save();
@@ -2595,11 +2696,40 @@
     }
   }
 
+  const hasLocalData = () => Object.keys(state.records).length > 0 || Object.keys(state.logs).length > 0 || photoThumbs.size > 0;
+
+  // Clears this phone's records and photos (another account's, about to be replaced by
+  // the one logging in; they stay in that account's server copy).
+  async function clearLocalData() {
+    const fresh = defaultState();
+    state.records = fresh.records;
+    state.parts = fresh.parts;
+    state.weeklyGoal = fresh.weeklyGoal;
+    state.logs = fresh.logs;
+    state.customEx = fresh.customEx;
+    if ('indexedDB' in window) {
+      try {
+        for (const k of await photoStore.keys()) {
+          await photoStore.remove(k);
+          setThumb(k, null);
+        }
+      } catch (e) { /* nothing saved */ }
+    }
+    clearSheetPhoto();
+    save();
+  }
+
   async function logOut() {
     if (!loggedIn()) return;
     const handle = state.social.handle;
-    if (!confirm(`@${handle}에서 로그아웃할까요?\n기록과 사진은 이 폰에 그대로 남아요.`)) return;
-    await cloudPush(); // don't leave unsent changes behind
+    if (!confirm(`@${handle}에서 로그아웃할까요?\n기록과 사진은 이 폰에 남아요. 다른 아이디로 로그인하면 그 아이디 기록으로 바뀌어요.`)) return;
+    // Everything should be on the server first: another login would replace this phone's copy.
+    const saved = await cloudSync();
+    if (!loggedIn()) return;
+    if (!saved || cloud.photoFails.size) {
+      const what = !saved ? '기록' : `사진 ${cloud.photoFails.size}장`;
+      if (!confirm(`아직 서버에 못 올린 ${what}이 있어요.\n지금 로그아웃하고 다른 아이디로 로그인하면 이 폰에서 사라져요.\n그래도 로그아웃할까요?`)) return;
+    }
     try { await api('/api/session', { method: 'DELETE' }); } catch (e) { /* the token is dropped here either way */ }
     if (state.social) {
       state.social = null;
@@ -2617,14 +2747,87 @@
     const btn = $('#pw-save');
     if (btn) btn.disabled = true;
     try {
-      await api('/api/me/password', { method: 'PUT', body: { password: next } });
+      const r = await api('/api/me/password', { method: 'PUT', body: { password: next } });
       ui.pwForm = false;
       renderCurrent();
-      toast('비밀번호를 바꿨어요');
+      toast(r.endedSessions ? '비밀번호를 바꿨어요 · 다른 기기는 로그아웃됐어요' : '비밀번호를 바꿨어요');
     } catch (err) {
       if (btn) btn.disabled = false;
       toast(err.message);
     }
+  }
+
+  async function endOtherSessions() {
+    if (!confirm('이 폰만 남기고 다른 기기에서 모두 로그아웃할까요?')) return;
+    try {
+      const r = await api('/api/sessions/others', { method: 'DELETE' });
+      toast(r.endedSessions ? '다른 기기에서 모두 로그아웃했어요' : '로그인된 다른 기기가 없어요');
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+
+  // Delete account: asks for the password (or the @handle typed out, for an account
+  // made with Apple/Kakao that never set one). This phone's records stay, as nobody's.
+  async function openDeleteForm() {
+    ui.delForm = { passwordSet: null, busy: false };
+    renderCurrent();
+    let passwordSet = true;
+    try { passwordSet = (await api('/api/me')).passwordSet !== false; } catch (e) { /* ask for the password */ }
+    if (!ui.delForm) return;
+    ui.delForm.passwordSet = passwordSet;
+    renderCurrent();
+    const input = $(passwordSet ? '#del-password' : '#del-confirm');
+    if (input) input.focus();
+  }
+
+  function deleteFormHtml() {
+    const f = ui.delForm;
+    const field = f.passwordSet === null ? '<p class="note form-note">확인 중…</p>' : f.passwordSet
+      ? `<input class="sr-only" type="text" name="username" autocomplete="username" value="${esc(state.social.handle)}" tabindex="-1" aria-hidden="true">
+         <input id="del-password" type="password" maxlength="64" placeholder="비밀번호" autocomplete="current-password" enterkeyhint="done" aria-label="비밀번호">`
+      : `<input id="del-confirm" type="text" maxlength="21" placeholder="확인용으로 @${esc(state.social.handle)} 입력" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="done" aria-label="아이디 확인">`;
+    return `<form class="pw-form" data-form="account-delete" novalidate>
+        <p class="auth-title">계정 삭제</p>
+        <p class="note form-note">서버에 있는 기록·사진·크루 인증·댓글이 모두 지워지고 되돌릴 수 없어요. 이 폰의 기록은 남아요.</p>
+        ${field}
+        <div class="pw-actions">
+          <button type="button" class="btn" data-action="delete-cancel">취소</button>
+          <button type="submit" class="btn danger"${f.busy || f.passwordSet === null ? ' disabled' : ''}>${f.busy ? '지우는 중…' : '계정 삭제'}</button>
+        </div>
+      </form>`;
+  }
+
+  async function deleteAccount() {
+    const f = ui.delForm;
+    if (!f || f.busy || f.passwordSet === null || !loggedIn()) return;
+    const body = f.passwordSet ? { password: fieldValue('#del-password') } : { confirm: fieldValue('#del-confirm') };
+    if (f.passwordSet ? !body.password : !body.confirm.trim()) {
+      toast(f.passwordSet ? '비밀번호를 입력해 주세요' : '아이디를 입력해 주세요');
+      return;
+    }
+    const handle = state.social.handle;
+    if (!confirm(`@${handle} 계정을 지울까요?\n되돌릴 수 없어요.`)) return;
+    f.busy = true;
+    renderCurrent();
+    try {
+      await api('/api/me', { method: 'DELETE', body });
+    } catch (e) {
+      f.busy = false;
+      renderCurrent();
+      toast(e.message);
+      return;
+    }
+    state.social = null;
+    state.owner = null;
+    resetCloud();
+    save();
+    ui.delForm = null;
+    resetCrews();
+    account.auth = null;
+    ui.pwForm = false;
+    renderCurrent();
+    toast(`@${handle} 계정을 지웠어요`);
   }
 
   function authFormHtml() {
@@ -2660,6 +2863,42 @@
 
   function resetCrews() {
     Object.assign(crew, { list: null, current: null, board: null, error: '', stale: true, manage: false, viewer: null });
+    clearAuthImages();
+  }
+
+  // Proof photos need a login in a shared crew (the server checks each time), so they're
+  // fetched with the token and shown from memory; a copied link alone opens nothing.
+  const authImages = new Map(); // '/img/key' → object URL, or the pending load
+  function authImg(path, attrs = '') {
+    const url = authImages.get(path);
+    return `<img${typeof url === 'string' ? ` src="${esc(url)}"` : ''} data-auth-src="${esc(path)}" ${attrs}>`;
+  }
+  function loadAuthImage(path) {
+    const have = authImages.get(path);
+    if (typeof have === 'string') return Promise.resolve(have);
+    if (have) return have;
+    const pending = api(path, { as: 'blob' }).then(blob => {
+      const url = URL.createObjectURL(blob);
+      authImages.set(path, url);
+      if (authImages.size > 60) { // keep the latest 60
+        const [oldKey, oldUrl] = authImages.entries().next().value;
+        if (typeof oldUrl === 'string') URL.revokeObjectURL(oldUrl);
+        authImages.delete(oldKey);
+      }
+      return url;
+    }, () => { authImages.delete(path); return null; });
+    authImages.set(path, pending);
+    return pending;
+  }
+  function hydrateAuthImages(root) {
+    for (const img of root.querySelectorAll('img[data-auth-src]')) {
+      if (img.getAttribute('src')) continue;
+      loadAuthImage(img.dataset.authSrc).then(url => { if (url && img.isConnected && !img.getAttribute('src')) img.src = url; });
+    }
+  }
+  function clearAuthImages() {
+    for (const v of authImages.values()) if (typeof v === 'string') URL.revokeObjectURL(v);
+    authImages.clear();
   }
 
   const renderCrewIfShown = () => { if (ui.tab === 'crew') renderCrew(); };
@@ -2898,9 +3137,9 @@
     if (list) list.scrollTop = list.scrollHeight;
   }
 
-  async function deleteComment(id) {
+  async function deleteComment(id, swiped = false) {
     const v = crew.viewer;
-    if (!v || !confirm('이 댓글을 지울까요?')) return;
+    if (!v || (!swiped && !confirm('이 댓글을 지울까요?'))) return;
     try {
       await api(`/api/comments/${id}`, { method: 'DELETE' });
       v.comments = (v.comments || []).filter(c => c.id !== id);
@@ -2921,18 +3160,23 @@
     const m = p && crew.board.members.find(x => x.id === v.userId);
     if (!p || !m) { closeViewer(); return; }
     const comments = v.comments === null ? '<p class="note">댓글 불러오는 중…</p>'
-      : v.comments.length ? v.comments.map(c => `
-        <div class="comment">
+      : v.comments.length ? v.comments.map(c => {
+        const row = `<div class="comment${c.canDelete ? ' swipe-front' : ''}">
           <b>@${esc(c.from.handle)}</b><span>${esc(c.body)}</span>
-          <small>${commentTime(c.createdAt)}${c.canDelete ? ` · <button class="link-btn" data-action="comment-delete" data-id="${esc(c.id)}">삭제</button>` : ''}</small>
-        </div>`).join('') : '<p class="note">첫 댓글을 남겨 보세요</p>';
+          <small>${commentTime(c.createdAt)}${c.canDelete ? `<button class="link-btn" data-action="comment-delete" data-id="${esc(c.id)}"> · 삭제</button>` : ''}</small>
+        </div>`;
+        // Mine, or on my proof: swipe left to delete (the small link stays for mouse users).
+        return c.canDelete ? `<div class="swipe comment-swipe">
+          <div class="swipe-actions"><button class="swipe-btn danger" data-action="comment-delete" data-id="${esc(c.id)}" data-swiped="1">${ICON.trash}<span>삭제</span></button></div>
+          ${row}</div>` : row;
+      }).join('') : '<p class="note">첫 댓글을 남겨 보세요</p>';
     viewerEl.innerHTML = `
       <div class="viewer-top">
         <span class="viewer-who"><b>@${esc(m.handle)}</b><small>${shortDay(p.date)} · ${esc(p.parts.join('·') || '오운완')}</small></span>
         <button class="icon-btn" data-action="viewer-close" aria-label="닫기">${ICON.close}</button>
       </div>
       <div class="viewer-scroll">
-        <div class="viewer-stage"><img src="${esc(API_BASE + p.image)}" alt="@${esc(m.handle)}의 오운완"></div>
+        <div class="viewer-stage">${authImg(p.image, `alt="@${esc(m.handle)}의 오운완"`)}</div>
         <div class="viewer-actions">${m.isMe
           ? `<span class="fire mine">🔥 <span>${p.fires}</span></span>`
           : `<button class="fire${p.fired ? ' on' : ''}" data-action="crew-fire" data-user="${esc(p.userId)}" data-date="${p.date}" aria-pressed="${p.fired}">🔥 <span>${p.fires}</span></button>`}
@@ -2944,6 +3188,7 @@
         <input id="comment-input" type="text" maxlength="200" value="${esc(v.draft)}" placeholder="댓글 달기" autocomplete="off" enterkeyhint="send" aria-label="댓글">
         <button class="btn primary" type="submit"${v.sending ? ' disabled' : ''}>보내기</button>
       </form>`;
+    hydrateAuthImages(viewerEl);
   }
   function closeViewer() {
     if (viewerEl.hidden) return;
@@ -3024,7 +3269,7 @@
     const proven = rows.filter(r => r.now);
     const strip = proven.length ? `<div class="proof-strip">${proven.map(r => `
       <button class="proof" data-action="crew-view" data-user="${esc(r.id)}" data-date="${tk}" aria-label="@${esc(r.handle)} 오늘 오운완 보기">
-        <img src="${esc(API_BASE + r.now.image)}" alt="" loading="lazy" decoding="async">
+        ${authImg(r.now.image, 'alt="" decoding="async"')}
         <span class="proof-who">@${esc(r.handle)}</span>
         <span class="proof-fire${r.now.fired ? ' on' : ''}">🔥 ${r.now.fires}${r.now.comments ? ` 💬 ${r.now.comments}` : ''}</span>
       </button>`).join('')}</div>` : '<p class="note crew-none">아직 아무도 없어요</p>';
@@ -3044,12 +3289,13 @@
       <div class="section-head"><h2>오늘 인증 <span class="count">${proven.length}</span></h2><span class="kicker">Today</span></div>
       ${strip}
       ${cta}
-      <p class="note">오늘 찍은 오운완을 저장하면 자동 인증돼요</p>
+      <p class="note">오운완을 저장하면 자동 인증돼요 · 놓친 날도 그날 찍은 사진이면 돼요<br>인증 사진은 나와 같은 크루에 있는 사람만 볼 수 있어요</p>
       <div class="group crew-manage">
         <div class="row"><span class="row-label">초대 코드</span><b class="code d">${esc(b.crew.code)}</b></div>
         <div class="row"><span class="row-label">다른 크루 만들기·들어가기</span><button class="btn" data-action="crew-add">추가</button></div>
         <div class="row"><span class="row-label">이 크루에서 나가기</span><button class="text-btn danger" data-action="crew-leave">나가기</button></div>
       </div>`;
+    hydrateAuthImages(el);
   }
 
   // ---------- rendering ----------
@@ -3233,44 +3479,26 @@
 `;
   }
 
-  function badgeSection() {
-    const s = badgeStats();
-    const timed = timedBadges(s);
-    let earned = 0;
-    let total = 0;
-    const group = (title, list, note = '') => {
-      let got = 0;
-      const items = list.map(b => {
-        const [n, goal] = b.of(s);
-        const on = n >= goal;
-        if (on) got++;
-        let sub = on || goal === 1 ? (b.listDesc || b.desc) : `${n.toLocaleString()} / ${goal.toLocaleString()}`;
-        if (b.current && !on) sub = `이번 달 ${n} / ${goal}`;
-        return `<div class="badge${on ? ' on' : ''}${b.current ? ' current' : ''}">${medal(b, on)}<b>${esc(b.label || b.name)}</b><small>${esc(sub)}</small></div>`;
-      }).join('');
-      earned += got;
-      total += list.length;
-      return `<div class="badge-group">
-          <div class="badge-group-head"><h3>${title}</h3><span><b class="d">${got}</b> / ${list.length}</span></div>
-          ${note ? `<p class="badge-note">${note}</p>` : ''}
-          <div class="badge-row">${items}</div>
-        </div>`;
-    };
-    const monthly = timed.filter(b => b.group === 'monthly').reverse(); // this month first
-    const seasons = [...new Set(timed.filter(b => b.group === 'season').map(b => b.year))].sort((a, b) => b - a);
-    const html = [
-      group('월간 챌린지', monthly, `한 달에 ${MONTH_GOAL}일 출석하면 획득`),
-      ...seasons.map(y => group(`${y} 시즌`, timed.filter(b => b.group === 'season' && b.year === y))),
-      ...BADGE_GROUPS.map(g => group(g.name, BADGES.filter(b => b.group === g.id))),
-    ].join('');
-    return `<section class="badges">
-        <div class="section-head"><h2>배지 <span class="count">${earned}</span><small>/${total}</small></h2><span class="kicker">All time</span></div>
-        <div class="progress badge-progress"><i style="width:${total ? (earned / total) * 100 : 0}%"></i></div>
-        ${html}
-      </section>`;
-  }
+  // The 기록 tab is three pages so each says one thing: 요약 (the season, months, parts),
+  // 배지 (what's next, then every badge), 종목 (each lift's best).
+  const STATS_PAGES = [['summary', '요약'], ['badges', '배지'], ['lifts', '종목']];
+  const STATS_PAGE_KEY = 'gymcheck:statsPage';
+  const badgeOn = (b, s) => { const [n, goal] = b.of(s); return n >= goal; };
+  // Under a "2026 시즌" or "월간 챌린지" heading the year is already said.
+  const badgeShort = b => (b.group === 'monthly' ? `${b.num}월` : b.label || b.name);
 
   function renderStats() {
+    const page = ui.statsPage;
+    const seg = `<div class="seg" role="tablist" aria-label="기록 보기">${STATS_PAGES.map(([id, label]) =>
+      `<button role="tab" data-action="stats-page" data-page="${id}" aria-selected="${id === page}">${label}</button>`).join('')}</div>`;
+    const body = page === 'badges' ? badgesPage() : page === 'lifts' ? liftsSection() : summaryPage();
+    views.stats.innerHTML = `
+      <header class="head"><div><p class="kicker">Records</p><h1>기록</h1></div></header>
+      ${seg}
+      ${body}`;
+  }
+
+  function summaryPage() {
     const t = today();
     const curY = t.getFullYear();
     const y = ui.statsYear;
@@ -3278,6 +3506,9 @@
     const dy = daysInYear(y);
     const years = Object.keys(state.records).map(k => Number(k.slice(0, 4)));
     const minY = Math.min(curY, ...years);
+    const s = badgeStats();
+    const monthKey = keyOf(t).slice(0, 7);
+    const monthDays = Object.entries(state.records).filter(([k, a]) => k.startsWith(monthKey) && a.length).length;
 
     let sub;
     if (y === curY) {
@@ -3291,8 +3522,9 @@
     const bars = months.map((n, i) => {
       const future = y === curY && i > t.getMonth();
       const cur = y === curY && i === t.getMonth();
+      // Only months with days get a number; empty ones are a thin line.
       return `<div class="bar-col${cur ? ' current' : ''}${future ? ' future' : ''}">
-        <div class="bar-track"><span class="bar-val">${future ? '' : n}</span><i class="bar" style="height:${(n / maxM) * 100}%"></i></div>
+        <div class="bar-track"><span class="bar-val">${n ? n : ''}</span><i class="bar" style="height:${(n / maxM) * 100}%"></i></div>
         <span class="bar-month">${i + 1}월</span>
       </div>`;
     }).join('');
@@ -3301,44 +3533,111 @@
     const rows = state.parts.map(p => {
       const n = parts[p.id] || 0;
       return `<div class="prow${maxP && n === maxP ? ' top' : ''}">
-        <span class="prow-name"><i style="background:${p.color}"></i><span>${esc(p.name)}</span></span>
+        <span class="prow-name"><span>${esc(p.name)}</span></span>
         <span class="prow-track"><i style="width:${maxP ? (n / maxP) * 100 : 0}%;background:${p.color}"></i></span>
         <span class="prow-count d">${n}</span>
       </div>`;
     }).join('');
+    const tile = (label, n) => `<div class="stat-tile"><span>${label}</span><b class="d">${n}<small>일</small></b></div>`;
 
-    views.stats.innerHTML = `
-      <header class="head">
-        <div>
-          <p class="kicker">Records</p>
-          <h1>${y} 시즌</h1>
-        </div>
+    return `
+      <div class="season-row">
+        <h2>${y} 시즌</h2>
         <div class="nav">
           <button class="icon-btn" data-action="year-prev" aria-label="이전 해"${y <= minY ? ' disabled' : ''}>${ICON.prev}</button>
           <button class="icon-btn" data-action="year-next" aria-label="다음 해"${y >= curY ? ' disabled' : ''}>${ICON.next}</button>
         </div>
-      </header>
-
-      <section class="stat-hero">
-        <p class="label">헬스장 간 날</p>
-        <div class="mega"><span class="d num">${days}</span><span class="d den">/${dy}</span><span class="unit">일</span></div>
+      </div>
+      <section class="stat-hero compact">
+        <div class="mega"><span class="d num">${days}</span><span class="d den">/${dy}</span><span class="unit">일 출석</span></div>
         <div class="progress"><i style="width:${(days / dy) * 100}%"></i></div>
         <p class="sub">${sub}</p>
       </section>
-
-      ${badgeSection()}
+      <div class="stat-tiles">${tile('이번 달', monthDays)}${tile('최장 연속', s.bestStreak)}${tile('총 출석', s.total)}</div>
 
       <section class="block">
         <div class="section-head"><h2>월별 출석</h2><span class="kicker">Monthly</span></div>
-        <div class="bars">${bars}</div>
+        <div class="bars compact">${bars}</div>
       </section>
 
       <section class="block">
         <div class="section-head"><h2>부위별 횟수</h2><span class="kicker">By part</span></div>
         ${rows}
-      </section>
+      </section>`;
+  }
 
-      ${liftsSection()}`;
+  function badgeGroups(s) {
+    const timed = timedBadges(s);
+    const seasons = [...new Set(timed.filter(b => b.group === 'season').map(b => b.year))].sort((a, b) => b - a);
+    return [
+      { id: 'monthly', title: `월간 챌린지 · 한 달 ${MONTH_GOAL}일`, list: timed.filter(b => b.group === 'monthly').reverse() },
+      ...seasons.map(y => ({ id: `season${y}`, title: `${y} 시즌`, list: timed.filter(b => b.group === 'season' && b.year === y) })),
+      ...BADGE_GROUPS.map(g => ({ id: g.id, title: g.name, list: BADGES.filter(b => b.group === g.id) })),
+    ].filter(g => g.list.length);
+  }
+
+  function badgesPage() {
+    const s = badgeStats();
+    const groups = badgeGroups(s);
+    const all = groups.flatMap(g => g.list);
+    const earned = all.filter(b => badgeOn(b, s)).length;
+    // The unearned ones closest to done (past months can't be earned any more).
+    const thisMonth = `m${keyOf(today()).slice(0, 7)}`;
+    const next = all
+      .filter(b => !badgeOn(b, s) && (b.group !== 'monthly' || b.id === thisMonth))
+      .map(b => { const [n, goal] = b.of(s); return { b, n, goal, r: n / Math.max(goal, 1) }; })
+      .filter(x => x.r > 0)
+      .sort((a, b) => b.r - a.r)
+      .slice(0, 3);
+    const nextHtml = next.length ? `
+      <div class="section-head"><h2>다음 배지</h2></div>
+      ${next.map(({ b, n, goal, r }) => `
+        <button class="next-badge" data-action="badge-open" data-id="${esc(b.id)}">
+          ${medal(b, false)}
+          <span class="next-badge-body">
+            <span class="next-badge-top"><b>${esc(b.name)}</b><small>${n.toLocaleString()} / ${goal.toLocaleString()}</small></span>
+            <span class="progress"><i style="width:${r * 100}%"></i></span>
+          </span>
+        </button>`).join('')}` : '';
+    const grid = groups.map(g => {
+      const got = g.list.filter(b => badgeOn(b, s)).length;
+      return `<div class="badge-group-head"><h3>${esc(g.title)}</h3><span><b class="d">${got}</b> / ${g.list.length}</span></div>
+        <div class="badge-grid">${g.list.map(b => {
+          const on = badgeOn(b, s);
+          return `<button class="badge-cell${on ? ' on' : ''}${b.current ? ' current' : ''}" data-action="badge-open" data-id="${esc(b.id)}" aria-label="${esc(b.name)}, ${on ? '획득' : '미획득'}">
+            ${medal(b, on)}<span>${esc(badgeShort(b))}</span></button>`;
+        }).join('')}</div>`;
+    }).join('');
+    return `
+      <div class="badge-count"><span class="d">${earned}</span><small>/ ${all.length}개 획득</small></div>
+      <div class="progress badge-progress"><i style="width:${all.length ? (earned / all.length) * 100 : 0}%"></i></div>
+      ${nextHtml}
+      <div class="badge-all">${grid}</div>`;
+  }
+
+  // One badge up close, in the bottom sheet.
+  function openBadgeSheet(id) {
+    const s = badgeStats();
+    const b = badgeGroups(s).flatMap(g => g.list).find(x => x.id === id);
+    if (!b) return;
+    const [n, goal] = b.of(s);
+    const on = n >= goal;
+    ui.sheetDate = null;
+    ui.partSheet = null;
+    ui.exSheet = null;
+    ui.badgeSheet = id;
+    sheet.innerHTML = `
+      <div class="handle" aria-hidden="true"></div>
+      <div class="badge-detail">
+        ${medal(b, on, ' big')}
+        <h2 id="sheet-title">${esc(b.name)}</h2>
+        <p class="sub">${esc(b.desc)}</p>
+        ${on ? '<p class="badge-got">획득했어요</p>' : goal > 1 ? `
+          <div class="progress"><i style="width:${(n / goal) * 100}%"></i></div>
+          <p class="sub">${n.toLocaleString()} / ${goal.toLocaleString()}</p>` : ''}
+        <button class="btn" data-action="close-sheet">닫기</button>
+      </div>`;
+    showSheet();
   }
 
   function renderSettings() {
@@ -3406,8 +3705,17 @@
           </div>
         </form>` : `
         <div class="row">
-          <span class="row-label">비밀번호 바꾸기</span>
+          <span class="row-label">비밀번호 바꾸기<small>바꾸면 다른 기기는 로그아웃돼요</small></span>
           <button class="btn" data-action="pw-open">바꾸기</button>
+        </div>`}
+        <div class="row">
+          <span class="row-label">다른 기기에서 로그아웃<small>이 폰만 남기고 모두 로그아웃돼요</small></span>
+          <button class="btn" data-action="sessions-end">로그아웃</button>
+        </div>
+        ${ui.delForm ? deleteFormHtml() : `
+        <div class="row">
+          <span class="row-label">계정 삭제<small>서버의 기록·사진·크루 인증이 모두 지워져요</small></span>
+          <button class="text-btn danger" data-action="delete-open">삭제</button>
         </div>`}` : account.auth ? authFormHtml() : `
         <div class="row">
           <span class="row-label">로그인 안 됨<small>로그인하면 기록이 자동 백업돼요</small></span>
@@ -3457,6 +3765,7 @@
           <button class="btn small" data-action="day-photo-add">다시 찍기</button>
           <button class="btn small danger" data-action="day-photo-delete">삭제</button>
         </div>
+        ${photoStatusHtml(k)}
       </div>` : '';
     sheet.innerHTML = `
       <div class="handle" aria-hidden="true"></div>
@@ -3482,6 +3791,9 @@
     ui.popId = null;
   }
 
+  // Same order as the tab bar (and the iOS app); swiping sideways walks through it.
+  const TAB_ORDER = ['today', 'calendar', 'stats', 'crew', 'settings'];
+
   function setTab(tab) {
     const scroller = $('#views');
     if (ui.tab === tab) { scroller.scrollTo({ top: 0, behavior: 'smooth' }); return; }
@@ -3491,6 +3803,7 @@
       if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
+    $('.tabbar').style.setProperty('--i', String(TAB_ORDER.indexOf(tab)));
     if (tab === 'calendar' && !ui.sheetDate) ui.calMonth = firstOfMonth(today());
     renderCurrent();
     if (tab === 'crew' && loggedIn()) loadCrews({ quiet: crew.list !== null });
@@ -3533,12 +3846,14 @@
           <p class="kicker">${p ? 'Edit part' : 'New part'}</p>
           <h2 id="sheet-title">${p ? '부위 수정' : '부위 추가'}</h2>
         </div>
-        <button class="btn" data-action="close-sheet">취소</button>
       </div>
       <form class="part-form" data-form="part-save" novalidate>
         <div class="field"><input id="part-name" type="text" maxlength="${MAX_NAME}" value="${p ? esc(p.name) : ''}" placeholder="이름 (예: 수영)" enterkeyhint="done" autocomplete="off" aria-label="부위 이름"></div>
         <div class="swatches" role="group" aria-label="색상">${colors.map(c => `<button type="button" class="swatch" style="--c:${c}" data-action="pick-color" data-color="${c}" aria-pressed="${c === ui.partSheet.color.toUpperCase()}" aria-label="색상 ${c}"></button>`).join('')}</div>
-        <button class="photo-cta" type="submit"><span>${p ? '저장' : '추가'}</span></button>
+        <div class="part-buttons">
+          <button class="photo-cta" type="submit"><span>${p ? '저장' : '추가'}</span></button>
+          <button type="button" class="btn part-cancel" data-action="close-sheet">취소</button>
+        </div>
         ${p ? `<button type="button" class="btn danger part-delete" data-action="part-delete" data-id="${esc(p.id)}">이 부위 삭제</button>` : ''}
       </form>`;
     showSheet();
@@ -3546,10 +3861,11 @@
   }
 
   function closeSheet() {
-    if (!ui.sheetDate && !ui.partSheet && !ui.exSheet) return;
+    if (!ui.sheetDate && !ui.partSheet && !ui.exSheet && !ui.badgeSheet) return;
     ui.sheetDate = null;
     ui.partSheet = null;
     ui.exSheet = null;
+    ui.badgeSheet = null;
     clearSheetPhoto();
     sheet.classList.remove('open');
     backdrop.classList.remove('open');
@@ -3678,23 +3994,178 @@
     renderCalendar();
   }
 
-  let swipe = null;
   let suppressClickUntil = 0;
-  views.calendar.addEventListener('pointerdown', e => {
-    if (!e.target.closest('.cal')) return;
-    swipe = { x: e.clientX, y: e.clientY };
+
+  // ---------- sideways drags: swipe rows and tab paging (like the iOS app) ----------
+  // One finger moving more sideways than up/down either slides a row open to show
+  // 수정/삭제, or pages to the next/previous tab with that page following the finger.
+  // Up/down movement is left to the browser (touch-action: pan-y), so scrolling is untouched.
+  const SWIPE_BTN = 74;
+  const SLIDE = 'transform 280ms var(--ease-out)';
+  let openRow = null;
+  let drag = null;
+
+  const rowFront = row => row.querySelector('.swipe-front');
+  const rowReveal = row => row.querySelectorAll('.swipe-btn').length * SWIPE_BTN;
+  function slideRow(row, x, animate) {
+    const front = rowFront(row);
+    if (!front) return;
+    clearTimeout(row._hide);
+    front.style.transition = animate ? SLIDE : 'none';
+    front.style.transform = x ? `translate3d(${x}px,0,0)` : '';
+    // The buttons sit behind the row; keep them hidden unless it's moved aside.
+    if (x) row.classList.add('shown');
+    else if (animate) row._hide = setTimeout(() => row.classList.remove('shown'), 290);
+    else row.classList.remove('shown');
+  }
+
+  function openSwipe(row) {
+    if (openRow && openRow !== row) closeSwipe();
+    slideRow(row, -rowReveal(row), true);
+    openRow = row;
+  }
+
+  function closeSwipe(row = openRow) {
+    if (!row) return;
+    if (row.isConnected) slideRow(row, 0, true);
+    if (openRow === row) openRow = null;
+  }
+
+  // The page that a sideways drag pulls in from the side.
+  function peekTab(d, dir) {
+    const tab = TAB_ORDER[d.idx + dir] || null;
+    if (d.peekTab === tab) return;
+    if (d.peek) { d.peek.hidden = true; d.peek.classList.remove('peek'); d.peek.style.cssText = ''; }
+    d.peek = null;
+    d.peekTab = tab;
+    d.dir = dir;
+    if (!tab) return;
+    if (tab === 'calendar' && !ui.sheetDate) ui.calMonth = firstOfMonth(today());
+    RENDER[tab]();
+    const el = views[tab];
+    el.classList.add('peek');
+    el.style.top = `${d.scroller.scrollTop}px`;
+    el.style.transition = 'none';
+    el.hidden = false;
+    d.peek = el;
+  }
+
+  function movePage(d, dx) {
+    peekTab(d, dx < 0 ? 1 : -1);
+    // Nothing on that side: resist, like the end of a pager.
+    const x = d.peek ? dx : dx / (1 + Math.abs(dx) / (d.w * 0.25)) * 0.6;
+    d.x = x;
+    d.cur.style.transition = 'none';
+    d.cur.style.transform = `translate3d(${x}px,0,0)`;
+    if (d.peek) d.peek.style.transform = `translate3d(${x + d.dir * d.w}px,0,0)`;
+  }
+
+  function endPage(d, vx) {
+    const flung = Math.abs(vx) > 0.35 && Math.sign(vx) === -d.dir;
+    const go = d.peek && (Math.abs(d.x) > d.w * 0.3 || flung) && Math.sign(d.x) === -d.dir;
+    const { cur, peek, scroller } = d;
+    cur.style.transition = SLIDE;
+    cur.style.transform = go ? `translate3d(${-d.dir * d.w}px,0,0)` : '';
+    if (peek) {
+      peek.style.transition = SLIDE;
+      peek.style.transform = go ? 'translate3d(0,0,0)' : `translate3d(${d.dir * d.w}px,0,0)`;
+    }
+    if (go) $('.tabbar').style.setProperty('--i', String(d.idx + d.dir));
+    setTimeout(() => {
+      cur.style.cssText = '';
+      if (peek) { peek.classList.remove('peek'); peek.style.cssText = ''; }
+      scroller.classList.remove('paging');
+      if (go) setTab(d.peekTab);
+      else if (peek) peek.hidden = true;
+    }, 290);
+  }
+
+  document.addEventListener('pointerdown', e => {
+    if (!e.isPrimary || e.button > 0 || drag?.settling) return;
+    // Another pointer while one is still dragging (its release was lost): settle that one first.
+    if (drag?.mode) endDrag({ pointerId: drag.id, clientX: drag.lastX }, true);
+    if (drag?.settling) return;
+    const row = e.target.closest('.swipe');
+    const scroller = e.target.closest('#views');
+    if (!row && !scroller) return;
+    if (e.target.closest('input, textarea, select, [contenteditable], .badge-row, .proof-strip, .crew-chips, .ex-chips')) return;
+    drag = { x0: e.clientX, y0: e.clientY, id: e.pointerId, row, scroller, touch: e.pointerType !== 'mouse', mode: null, samples: [] };
   });
-  views.calendar.addEventListener('pointerup', e => {
-    if (!swipe) return;
-    const dx = e.clientX - swipe.x;
-    const dy = e.clientY - swipe.y;
-    swipe = null;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      suppressClickUntil = Date.now() + 400;
-      shiftMonth(dx < 0 ? 1 : -1);
+
+  document.addEventListener('pointermove', e => {
+    const d = drag;
+    if (!d || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (!d.mode) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dx) <= Math.abs(dy) * 1.2) { drag = null; return; }
+      if (d.row && (dx < 0 || d.row === openRow)) {
+        d.mode = 'row';
+        d.start = d.row === openRow ? -rowReveal(d.row) : 0;
+        if (openRow && openRow !== d.row) closeSwipe();
+        openRow = d.row;
+      } else if (d.scroller && d.touch && !ui.sheetDate) {
+        d.mode = 'page';
+        closeSwipe();
+        d.w = d.scroller.clientWidth;
+        d.cur = views[ui.tab];
+        d.idx = TAB_ORDER.indexOf(ui.tab);
+        d.peekTab = undefined;
+        d.scroller.classList.add('paging');
+      } else { drag = null; return; }
+      d.x0 = e.clientX; // start from here, so the content doesn't jump by the slop
+      try { e.target.setPointerCapture(e.pointerId); } catch {}
+    }
+    const mx = e.clientX - d.x0;
+    d.lastX = e.clientX;
+    d.samples.push({ x: e.clientX, t: e.timeStamp });
+    if (d.samples.length > 6) d.samples.shift();
+    if (d.mode === 'row') {
+      const reveal = rowReveal(d.row);
+      const x = d.start + mx;
+      // Past the buttons it gets heavier, like iOS.
+      slideRow(d.row, x < -reveal ? -reveal + (x + reveal) * 0.25 : Math.min(0, x), false);
+    } else {
+      movePage(d, mx);
     }
   });
-  views.calendar.addEventListener('pointercancel', () => { swipe = null; });
+
+  function endDrag(e, cancelled) {
+    const d = drag;
+    if (!d || e.pointerId !== d.id) return;
+    drag = null;
+    if (!d.mode) return;
+    suppressClickUntil = Date.now() + 350; // the release isn't a tap
+    const first = d.samples[0];
+    const last = d.samples[d.samples.length - 1];
+    const vx = first && last && last.t > first.t ? (last.x - first.x) / (last.t - first.t) : 0;
+    if (d.mode === 'row') {
+      const projected = d.start + (e.clientX - d.x0) + vx * 150;
+      if (!cancelled && projected < -rowReveal(d.row) / 2) openSwipe(d.row); else closeSwipe(d.row);
+    } else {
+      drag = { settling: true };
+      endPage(d, cancelled ? 0 : vx);
+      setTimeout(() => { if (drag?.settling) drag = null; }, 300);
+    }
+  }
+  document.addEventListener('pointerup', e => endDrag(e, false));
+  document.addEventListener('pointercancel', e => endDrag(e, true));
+
+  // A tap right after a drag does nothing; while a row is open, a tap anywhere else
+  // just closes it (its own buttons still work), like iOS lists.
+  document.addEventListener('click', e => {
+    if (Date.now() < suppressClickUntil) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+    if (!openRow) return;
+    if (openRow.isConnected && e.target.closest('.swipe-actions') && openRow.contains(e.target)) { closeSwipe(); return; }
+    closeSwipe();
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
 
   // ---------- long-press a part tile → edit it ----------
   let hold = null;
@@ -3770,6 +4241,12 @@
         renderCalendar();
         break;
       case 'year-prev': ui.statsYear--; renderStats(); break;
+      case 'stats-page':
+        ui.statsPage = el.dataset.page;
+        try { localStorage.setItem(STATS_PAGE_KEY, ui.statsPage); } catch (e) { /* remembered for this visit only */ }
+        renderStats();
+        break;
+      case 'badge-open': openBadgeSheet(el.dataset.id); break;
       case 'year-next': ui.statsYear++; renderStats(); break;
       case 'goal-dec': setGoal(-1); break;
       case 'goal-inc': setGoal(1); break;
@@ -3843,7 +4320,8 @@
       case 'crew-view': openViewer(el.dataset.user, el.dataset.date); break;
       case 'crew-fire': cheerProof(el.dataset.user, el.dataset.date); break;
       case 'viewer-close': closeViewer(); break;
-      case 'comment-delete': deleteComment(id); break;
+      case 'comment-delete': deleteComment(id, el.dataset.swiped === '1'); break;
+      case 'log-delete': deleteLog(el.dataset.date, el.dataset.ex); break;
       case 'part-delete': deletePart(id); break;
       case 'export':
         if (ui.tab !== 'settings') setTab('settings');
@@ -3880,6 +4358,13 @@
       case 'day-photo-add': startPhoto(ui.sheetDate); break;
       case 'day-photo-share': shareDayPhoto(); break;
       case 'day-photo-delete': deleteDayPhoto(); break;
+      case 'day-photo-retry': retryDayPhoto(); break;
+      case 'sessions-end': endOtherSessions(); break;
+      case 'delete-open': openDeleteForm(); break;
+      case 'delete-cancel':
+        ui.delForm = null;
+        renderCurrent();
+        break;
       case 'photo-retake': $('#photo-input').click(); break;
       case 'photo-save': savePhoto(); break;
       case 'photo-close': closePhoto(); break;
@@ -3914,6 +4399,9 @@
     } else if (e.target.matches('[data-form="pw-change"]')) {
       e.preventDefault();
       changePassword();
+    } else if (e.target.matches('[data-form="account-delete"]')) {
+      e.preventDefault();
+      deleteAccount();
     }
   });
 

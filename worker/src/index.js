@@ -76,14 +76,16 @@ async function route(request, env) {
   const m = request.method;
   let p;
 
-  if (m === 'GET' && (p = path.match(/^\/img\/([A-Za-z0-9-]{20,80})$/))) return getImage(env, p[1]);
   if (m === 'POST' && path === '/api/users') return createUser(request, env);
   if (m === 'POST' && path === '/api/login') return login(request, env);
   if (m === 'POST' && path === '/api/auth/apple') return socialLogin(request, env, 'apple');
   if (m === 'POST' && path === '/api/auth/kakao') return socialLogin(request, env, 'kakao');
 
   const me = await authenticate(request, env);
+  if (m === 'GET' && (p = path.match(/^\/img\/([A-Za-z0-9-]{20,80})$/))) return getImage(env, me, p[1]);
   if (m === 'GET' && path === '/api/me') return getMe(env, me);
+  if (m === 'DELETE' && path === '/api/me') return deleteAccount(request, env, me);
+  if (m === 'DELETE' && path === '/api/sessions/others') return endOtherSessions(env, me);
   if (m === 'PUT' && (p = path.match(/^\/api\/me\/(apple|kakao)$/))) return linkSocial(request, env, me, p[1]);
   if (m === 'PATCH' && path === '/api/me') return updateMe(request, env, me);
   if (m === 'PUT' && path === '/api/me/password') return changePassword(request, env, me);
@@ -331,7 +333,7 @@ async function socialLogin(request, env, provider) {
   const user = { id: crypto.randomUUID(), handle, nickname: handle.slice(0, 12) };
   const pw = await hashPassword(randomToken()); // no password until the user sets one
   try {
-    await env.DB.prepare(`INSERT INTO users (id, handle, nickname, pw_hash, pw_salt, pw_iter, created_at, ${col}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    await env.DB.prepare(`INSERT INTO users (id, handle, nickname, pw_hash, pw_salt, pw_iter, created_at, pw_set, ${col}) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`)
       .bind(user.id, handle, user.nickname, pw.pw_hash, pw.pw_salt, pw.pw_iter, Date.now(), subject).run();
   } catch (e) {
     if (String(e).includes('UNIQUE')) throw new HttpError(409, '이미 쓰고 있는 아이디예요');
@@ -351,8 +353,12 @@ async function linkSocial(request, env, me, provider) {
 }
 
 async function getMe(env, me) {
-  const row = await env.DB.prepare('SELECT apple_sub, kakao_id FROM users WHERE id = ?').bind(me.id).first();
-  return json({ user: me, linked: { apple: Boolean(row && row.apple_sub), kakao: Boolean(row && row.kakao_id) } });
+  const row = await env.DB.prepare('SELECT apple_sub, kakao_id, pw_set FROM users WHERE id = ?').bind(me.id).first();
+  return json({
+    user: me,
+    linked: { apple: Boolean(row && row.apple_sub), kakao: Boolean(row && row.kakao_id) },
+    passwordSet: Boolean(row && row.pw_set),
+  });
 }
 
 async function login(request, env) {
@@ -382,16 +388,74 @@ async function login(request, env) {
 }
 
 // No email on file, so a logged-in device is how you reset a forgotten password.
+// A new password also logs out every other device (someone else may know the old one).
 async function changePassword(request, env, me) {
   const body = await readJson(request);
   const pw = await hashPassword(cleanPassword(body.password));
-  await env.DB.prepare('UPDATE users SET pw_hash = ?, pw_salt = ?, pw_iter = ? WHERE id = ?')
-    .bind(pw.pw_hash, pw.pw_salt, pw.pw_iter, me.id).run();
-  return json({ ok: true });
+  const [, ended] = await env.DB.batch([
+    env.DB.prepare('UPDATE users SET pw_hash = ?, pw_salt = ?, pw_iter = ?, pw_set = 1 WHERE id = ?')
+      .bind(pw.pw_hash, pw.pw_salt, pw.pw_iter, me.id),
+    env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').bind(me.id, me.tokenHash),
+  ]);
+  return json({ ok: true, endedSessions: ended.meta.changes });
 }
 
 async function logout(env, me) {
   await env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(me.tokenHash).run();
+  return json({ ok: true });
+}
+
+// "다른 기기에서 로그아웃": every session but this one.
+async function endOtherSessions(env, me) {
+  const r = await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').bind(me.id, me.tokenHash).run();
+  return json({ ok: true, endedSessions: r.meta.changes });
+}
+
+// Deletes the account and everything under it: backup, photos, proofs, comments, cheers,
+// crew memberships (a crew passes to its next member, or goes when it's empty).
+// Asks for the password, or for the @handle typed out when the account never set one.
+async function deleteAccount(request, env, me) {
+  const body = await readJson(request);
+  const row = await env.DB.prepare('SELECT pw_hash, pw_salt, pw_iter, pw_set FROM users WHERE id = ?').bind(me.id).first();
+  if (!row) throw new HttpError(404, '계정을 찾을 수 없어요');
+  if (row.pw_set) {
+    const ok = typeof body.password === 'string' && body.password && await checkPassword(body.password, row);
+    if (!ok) throw new HttpError(403, '비밀번호가 맞지 않아요');
+  } else if (String(body.confirm || '').trim().toLowerCase().replace(/^@/, '') !== me.handle) {
+    throw new HttpError(403, '아이디를 정확히 입력해 주세요');
+  }
+
+  const { results: crews } = await env.DB.prepare(`
+    SELECT c.id, c.owner_id FROM crews c JOIN crew_members m ON m.crew_id = c.id AND m.user_id = ?`).bind(me.id).all();
+  for (const c of crews) await removeFromCrew(env, c.id, me.id, c.owner_id);
+
+  const keys = [];
+  for (const sql of ['SELECT image_key FROM proofs WHERE user_id = ?', 'SELECT image_key FROM posts WHERE user_id = ?']) {
+    const { results } = await env.DB.prepare(sql).bind(me.id).all();
+    for (const r of results) keys.push(r.image_key);
+  }
+  let cursor;
+  do {
+    const page = await env.IMAGES.list({ prefix: backupKey(me.id, ''), cursor, limit: 1000 });
+    for (const o of page.objects) keys.push(o.key);
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  const id = me.id;
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM proof_comments WHERE user_id = ? OR from_id = ?').bind(id, id),
+    env.DB.prepare('DELETE FROM cheers WHERE user_id = ? OR from_id = ?').bind(id, id),
+    env.DB.prepare('DELETE FROM proofs WHERE user_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM crew_wins WHERE user_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM fires WHERE user_id = ? OR post_id IN (SELECT id FROM posts WHERE user_id = ?)').bind(id, id),
+    env.DB.prepare('DELETE FROM posts WHERE user_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM days WHERE user_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM follows WHERE follower_id = ? OR followee_id = ?').bind(id, id),
+    env.DB.prepare('DELETE FROM login_fails WHERE handle = ?').bind(me.handle),
+    env.DB.prepare('DELETE FROM sessions WHERE user_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id),
+  ]);
+  for (let i = 0; i < keys.length; i += 1000) await env.IMAGES.delete(keys.slice(i, i + 1000));
   return json({ ok: true });
 }
 
@@ -655,17 +719,22 @@ async function joinCrew(request, env, me) {
 
 async function leaveCrew(env, me, crewId) {
   const c = await requireMember(env, crewId, me.id);
-  await env.DB.prepare('DELETE FROM crew_members WHERE crew_id = ? AND user_id = ?').bind(crewId, me.id).run();
+  await removeFromCrew(env, crewId, me.id, c.owner_id);
+  return json({ ok: true });
+}
+
+// The crew passes to its longest-standing member, or is deleted once nobody's left.
+async function removeFromCrew(env, crewId, userId, ownerId) {
+  await env.DB.prepare('DELETE FROM crew_members WHERE crew_id = ? AND user_id = ?').bind(crewId, userId).run();
   const next = await env.DB.prepare('SELECT user_id FROM crew_members WHERE crew_id = ? ORDER BY joined_at LIMIT 1').bind(crewId).first();
   if (!next) {
     await env.DB.batch([
       env.DB.prepare('DELETE FROM crews WHERE id = ?').bind(crewId),
       env.DB.prepare('DELETE FROM crew_wins WHERE crew_id = ?').bind(crewId),
     ]);
-  } else if (c.owner_id === me.id) {
+  } else if (ownerId === userId) {
     await env.DB.prepare('UPDATE crews SET owner_id = ? WHERE id = ?').bind(next.user_id, crewId).run();
   }
-  return json({ ok: true });
 }
 
 // Dates come from the phone (its own time zone): from–to is this week (Mon–Sun),
@@ -716,10 +785,15 @@ async function crewBoard(env, me, crewId, url) {
   });
 }
 
-// A proof is for today (by the phone's clock), so only a day either side of the server's.
+// A proof is for a day of this week by the phone's calendar: the app only sends one when
+// the photo's own taken-date (EXIF) is that day, so a forgotten day can still count.
+// Up to 8 days back (a week, plus time zones), at most a day and a half ahead.
 function checkProofDate(date) {
   const t = Date.parse(`${date}T12:00:00Z`);
-  if (Number.isNaN(t) || Math.abs(Date.now() - t) > 36 * 3600 * 1000) throw new HttpError(400, '오늘 사진만 인증할 수 있어요');
+  const now = Date.now();
+  if (Number.isNaN(t) || t > now + 36 * 3600 * 1000 || t < now - 8 * 24 * 3600 * 1000) {
+    throw new HttpError(400, '이번 주에 찍은 사진만 인증할 수 있어요');
+  }
 }
 
 async function putProof(request, env, me, date) {
@@ -883,11 +957,21 @@ async function deleteBackupPhoto(env, me, date) {
   return json({ ok: true });
 }
 
-// Feed photo URLs carry a random, unguessable key.
-async function getImage(env, key) {
+// Proof photos: only for the owner and people who share a crew with them, checked on
+// every request (a copied link is useless without a login in that crew). The old feed's
+// photos: only their owner.
+async function getImage(env, me, key) {
+  const proof = await env.DB.prepare('SELECT user_id, date FROM proofs WHERE image_key = ?').bind(key).first();
+  if (proof) {
+    await requireVisibleProof(env, me, proof.user_id, proof.date);
+  } else {
+    const post = await env.DB.prepare('SELECT 1 FROM posts WHERE image_key = ? AND user_id = ?').bind(key, me.id).first();
+    if (!post) throw new HttpError(404, '사진이 없어요');
+  }
   const obj = await env.IMAGES.get(key);
   if (!obj) throw new HttpError(404, '사진이 없어요');
+  // A key never changes its photo, so the app may keep it; nothing shared may.
   return new Response(obj.body, {
-    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable' },
+    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=86400' },
   });
 }

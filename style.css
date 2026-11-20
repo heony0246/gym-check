@@ -83,7 +83,18 @@ html, body { height: 100%; }
   display: flex;
   flex-direction: column;
 }
-.views { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+.views {
+  position: relative;
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Up/down stays native scrolling; sideways drags page between tabs (app.js). */
+  touch-action: pan-y pinch-zoom;
+}
+/* The neighbouring tab, pulled in from the side while paging. */
+.view.peek { position: absolute; left: 0; right: 0; }
+.views.paging .view { will-change: transform; }
 
 .view {
   max-width: 560px;
@@ -91,25 +102,47 @@ html, body { height: 100%; }
   padding:
     calc(env(safe-area-inset-top, 0px) + 18px)
     max(var(--gutter), env(safe-area-inset-right, 0px))
-    32px
+    calc(max(calc(env(safe-area-inset-bottom, 0px) + 4px), 12px) + 64px + 28px)
     max(var(--gutter), env(safe-area-inset-left, 0px));
 }
 
+/* Floating capsule over the content, like the iOS app: the page scrolls under it. */
 .tabbar {
+  --i: 0;
+  position: absolute;
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(calc(env(safe-area-inset-bottom, 0px) + 4px), 12px);
+  z-index: 20;
+  max-width: 528px;
+  margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  background: var(--bg);
-  border-top: 1px solid var(--line);
-  /* Sit closer to the home indicator than the full 34pt inset, like native tab bars,
-     so the strip under the tabs doesn't read as an empty letterbox. */
-  padding:
-    0
-    env(safe-area-inset-right, 0px)
-    max(calc(env(safe-area-inset-bottom, 0px) - 16px), 4px)
-    env(safe-area-inset-left, 0px);
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(32, 32, 35, .72);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), 0 10px 30px rgba(0, 0, 0, .45);
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* The selected-tab pill slides between tabs. */
+.tabbar::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  width: calc((100% - 10px) / 5);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .12);
+  transform: translateX(calc(var(--i) * 100%));
+  transition: transform 300ms var(--ease-out);
 }
 .tab {
-  height: 58px;
+  position: relative;
+  height: 54px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -117,9 +150,11 @@ html, body { height: 100%; }
   gap: 3px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--faint);
+  color: var(--text);
+  touch-action: manipulation;
+  transition: color 160ms var(--ease-out);
 }
-.tab svg { width: 24px; height: 24px; transition: transform 140ms var(--ease-out); }
+.tab svg { width: 22px; height: 22px; transition: transform 140ms var(--ease-out); }
 .tab:active svg { transform: scale(.88); }
 .tab[aria-current="page"] { color: var(--volt); }
 
@@ -265,17 +300,9 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
   font-weight: 700;
   font-size: 11px;
   letter-spacing: .08em;
-  color: var(--muted);
+  color: var(--c); /* the part's own color, no marker bar */
   white-space: nowrap;
   overflow: hidden;
-}
-.tile-tag::before {
-  content: "";
-  flex-shrink: 0;
-  width: 3px;
-  height: 11px;
-  border-radius: 2px;
-  background: var(--c);
 }
 .tile-name {
   margin-top: 8px;
@@ -397,6 +424,10 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
 }
 .sheet-photo-actions { display: flex; gap: 8px; margin-top: 10px; }
 .sheet-photo-actions .btn { flex: 1; }
+/* Whether the server has this day's photo too. */
+.photo-status { margin: 10px 2px 0; font-size: 12px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.photo-status.ok { color: var(--faint); }
+.photo-status.warn { color: var(--warn); }
 .btn.danger { color: var(--danger); }
 .sheet .photo-cta { margin-top: 10px; }
 
@@ -535,7 +566,7 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
   background: var(--surface);
 }
 .legend-row { display: flex; align-items: center; gap: 9px; padding: 9px 0; font-size: 14px; font-weight: 700; min-width: 0; }
-.legend-row i { width: 4px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+.legend-row i { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; } /* same dot as under each date */
 .legend-row b { margin-left: auto; font-size: 20px; line-height: 1; }
 .legend-row.zero { color: var(--muted); }
 .legend-row.zero b { color: var(--faint); }
@@ -695,6 +726,8 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
 .part-form { display: grid; gap: 16px; }
 .part-form .swatches { padding: 2px 2px 0; }
 .part-form .photo-cta { margin-top: 2px; }
+.part-buttons { display: grid; gap: 8px; }
+.part-cancel { width: 100%; height: 52px; font-size: 16px; }
 .part-delete { width: 100%; height: 48px; background: transparent; }
 .sheet .swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text); }
 
@@ -702,7 +735,7 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(58px + env(safe-area-inset-bottom, 0px) + 14px);
+  bottom: calc(max(calc(env(safe-area-inset-bottom, 0px) + 4px), 12px) + 64px + 12px);
   z-index: 30;
   max-width: calc(100vw - 32px);
   padding: 11px 18px;
@@ -772,6 +805,50 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
 .handle-field span { font-weight: 800; color: var(--muted); }
 .handle-field input { border: 0; padding-left: 4px; }
 .handle-field:focus-within { border-color: var(--volt); }
+
+/* ---------- 기록: three pages ---------- */
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; margin: 0 0 22px; border-radius: 999px; background: var(--surface); }
+.seg button { height: 36px; border-radius: 999px; font-size: 14px; font-weight: 800; color: var(--muted); transition: background 160ms var(--ease-out), color 160ms var(--ease-out); }
+.seg button[aria-selected="true"] { background: var(--volt); color: var(--on-volt); }
+.season-row { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 4px; }
+.season-row h2 { font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.stat-hero.compact { margin-bottom: 18px; }
+.stat-hero.compact .mega .d.num { font-size: 88px; }
+.stat-hero.compact .mega .d.den { font-size: 30px; }
+.stat-hero.compact .progress { margin-top: 14px; }
+.stat-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.stat-tile { padding: 14px; border-radius: 16px; background: var(--surface); }
+.stat-tile span { font-size: 12px; font-weight: 700; color: var(--muted); }
+.stat-tile b { display: block; margin-top: 6px; font-size: 30px; line-height: 1; }
+.stat-tile b small { margin-left: 2px; font-family: var(--font); font-style: normal; font-size: 12px; font-weight: 700; color: var(--muted); }
+.bars.compact .bar-track { height: 96px; }
+
+.badge-count { display: flex; align-items: baseline; gap: 6px; margin: 0 2px; }
+.badge-count .d { font-size: 44px; line-height: 1; color: var(--volt); }
+.badge-count small { font-size: 15px; font-weight: 700; color: var(--muted); }
+.badge-count + .badge-progress { margin: 10px 2px 26px; }
+.next-badge { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px; border-radius: 16px; background: var(--surface); text-align: left; }
+.next-badge + .next-badge { margin-top: 8px; }
+.next-badge .medal { --size: 46px; }
+.next-badge-body { flex: 1; min-width: 0; }
+.next-badge-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.next-badge-top b { font-size: 15px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.next-badge-top small { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+.next-badge .progress { display: block; margin: 8px 0 0; }
+.badge-all { margin-top: 28px; }
+.badge-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 6px; margin-bottom: 26px; }
+.badge-cell { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; padding: 4px 0; }
+.badge-cell .medal { --size: 56px; }
+.badge-cell > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 700; color: var(--faint); }
+.badge-cell.on > span { color: var(--text); }
+.badge-cell.current:not(.on) .medal { box-shadow: inset 0 0 0 2px var(--mc); color: var(--mc); }
+.badge-cell:active .medal { transform: scale(.94); }
+.badge-cell .medal { transition: transform 120ms var(--ease-out); }
+.badge-detail { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 8px 6px; text-align: center; }
+.badge-detail h2 { margin-top: 8px; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.badge-detail .progress { width: 70%; margin: 6px 0 0; }
+.badge-detail .btn { width: 100%; margin-top: 14px; }
+.badge-got { font-size: 14px; font-weight: 800; color: var(--volt); }
 
 /* ---------- badges ---------- */
 /* One colour (--mc) and shape per group: circle, rounded square, shield. */
@@ -899,6 +976,7 @@ h1 .d { font-size: 26px; color: var(--muted); margin-left: 6px; letter-spacing: 
 /* ---------- account form (settings) ---------- */
 .auth-title { font-size: 16px; font-weight: 800; }
 .auth-form .note { margin: 0 2px; }
+.pw-form .form-note { margin: 0 2px; text-align: left; }
 .auth-form .auth-switch { margin: 4px 0 0; }
 .pw-form .handle-field input { height: 44px; border: 0; padding-left: 4px; }
 .pw-form .handle-field input:focus { border: 0; }
@@ -1046,6 +1124,39 @@ button.fire:active { transform: scale(.9); }
 .log-add small { font-size: 12px; font-weight: 600; color: var(--faint); }
 .sheet .log-block { margin-top: 12px; }
 
+/* Swipe a row left for 수정 / 삭제 (app.js), like the iOS app. The buttons sit behind
+   the row at its right end and show as the row slides aside. */
+.swipe { position: relative; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; }
+.swipe-front { position: relative; z-index: 1; }
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  border-radius: 16px;
+  overflow: hidden;
+  visibility: hidden;
+}
+.swipe.shown .swipe-actions { visibility: visible; }
+.swipe-btn {
+  width: 74px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  touch-action: manipulation;
+}
+.swipe-btn svg { width: 17px; height: 17px; }
+.swipe-btn.danger { background: var(--danger); color: #fff; }
+.swipe-btn:active { filter: brightness(.88); }
+.comment-swipe .swipe-actions { border-radius: 10px; }
+
 .ex-search { margin-bottom: 12px; }
 .ex-chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 0 12px; padding-bottom: 2px; }
 .ex-chips::-webkit-scrollbar { display: none; }
@@ -1166,6 +1277,9 @@ h1, h2, .cheer-title, .note, .crew-intro, .row-label small, .badge-note, .instal
 .comment span { overflow-wrap: anywhere; }
 .comment small { grid-column: 2; font-size: 12px; color: var(--faint); }
 .comment .link-btn { padding: 0; font-size: 12px; }
+.comment.swipe-front { background: var(--bg); }
+/* On touch screens own comments are deleted by swiping; the link is for mouse users. */
+@media (hover: none) { .comment .link-btn[data-action="comment-delete"] { display: none; } }
 .comments .note { margin: 4px 0 0; }
 .comment-bar { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .comment-bar input { flex: 1; min-width: 0; height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); outline: none; }
