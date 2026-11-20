@@ -16,8 +16,8 @@
   // How each part reads in "___ DAY" on the 오운완 photo.
   const DAY_EN = { chest: 'CHEST', back: 'BACK', legs: 'LEG', arms: 'ARM', shoulders: 'SHOULDER', abs: 'ABS', cardio: 'CARDIO' };
   const VOLT = '#D4FF3F';
-  // Characters for the 오운완 photo (stickers/sN.png, cut out from pic/).
-  const STICKERS = ['s1', 's2', 's3', 's4', 's5', 's6'];
+  // Characters for the 오운완 photo (stickers/sN.png, cut out from pic/ and pic2/).
+  const STICKERS = Array.from({ length: 18 }, (_, i) => `s${i + 1}`);
   const BUILTIN_IDS = new Set(DEFAULT_PARTS.map(p => p.id));
   const CUSTOM_COLORS = ['#F472B6', '#818CF8', '#A3E635', '#2DD4BF', '#FB7185', '#94A3B8', '#E879F9', '#C08457'];
   const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -25,7 +25,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.6.2';
+  const APP_VERSION = '1.7.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -485,7 +485,9 @@
     if (sticker) {
       const portrait = H >= W;
       const maxH = H * (portrait ? 0.44 : 0.66);
-      const maxSW = W * (portrait ? 0.36 : 0.3);
+      // Lying/wide poses (crunch) get more width so they don't end up tiny.
+      const wide = sticker.naturalWidth > sticker.naturalHeight;
+      const maxSW = W * (portrait ? (wide ? 0.46 : 0.36) : (wide ? 0.38 : 0.3));
       const k = Math.min(maxH / sticker.naturalHeight, maxSW / sticker.naturalWidth);
       const sw = sticker.naturalWidth * k;
       const sh = sticker.naturalHeight * k;
@@ -551,8 +553,11 @@
     photoStickers.innerHTML =
       `<button class="pe-sticker none" data-action="photo-sticker" data-id="" aria-pressed="${!cur}" aria-label="캐릭터 없이">없음</button>` +
       STICKERS.map((id, i) =>
-        `<button class="pe-sticker" data-action="photo-sticker" data-id="${id}" aria-pressed="${cur === id}" aria-label="캐릭터 ${i + 1}"><img src="stickers/${id}-thumb.png" alt=""></button>`
+        `<button class="pe-sticker" data-action="photo-sticker" data-id="${id}" aria-pressed="${cur === id}" aria-label="캐릭터 ${i + 1}"><img src="stickers/${id}-thumb.png" alt="" loading="lazy" decoding="async"></button>`
       ).join('');
+    // Bring the remembered pick into view in the scrolling row.
+    const picked = photoStickers.querySelector('.pe-sticker[aria-pressed="true"]');
+    if (picked) requestAnimationFrame(() => picked.scrollIntoView({ block: 'nearest', inline: 'center' }));
   }
 
   function pickSticker(id) {
