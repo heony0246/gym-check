@@ -20,9 +20,190 @@
   const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
   const WEEKDAYS_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
   const MAX_NAME = 8;
+
+  // ---------- exercise catalog (for the optional sets × kg log) ----------
+  // [id, name, part, equipment, kind]. part is a built-in part id, or 'full' for
+  // whole-body moves. kind says what a set holds; see EX_KINDS.
+  const EXERCISES = [
+    ["barbell-bench-press", "벤치프레스", "chest", "바벨", "wr"],
+    ["incline-bench-press", "인클라인 벤치프레스", "chest", "바벨", "wr"],
+    ["decline-bench-press", "디클라인 벤치프레스", "chest", "바벨", "wr"],
+    ["dumbbell-bench-press", "덤벨 프레스", "chest", "덤벨", "wr"],
+    ["incline-dumbbell-press", "인클라인 덤벨 프레스", "chest", "덤벨", "wr"],
+    ["decline-dumbbell-press", "디클라인 덤벨 프레스", "chest", "덤벨", "wr"],
+    ["dumbbell-fly", "덤벨 플라이", "chest", "덤벨", "wr"],
+    ["incline-dumbbell-fly", "인클라인 덤벨 플라이", "chest", "덤벨", "wr"],
+    ["dumbbell-pullover", "덤벨 풀오버", "chest", "덤벨", "wr"],
+    ["smith-machine-bench-press", "스미스 벤치프레스", "chest", "스미스 머신", "wr"],
+    ["smith-incline-press", "스미스 인클라인 프레스", "chest", "스미스 머신", "wr"],
+    ["chest-press-machine", "체스트 프레스", "chest", "머신", "wr"],
+    ["incline-chest-press-machine", "인클라인 체스트 프레스", "chest", "머신", "wr"],
+    ["decline-chest-press-machine", "디클라인 체스트 프레스", "chest", "머신", "wr"],
+    ["wide-chest-press-plate-loaded", "와이드 체스트 프레스", "chest", "머신", "wr"],
+    ["pec-deck-fly", "펙덱 플라이 (버터플라이)", "chest", "머신", "wr"],
+    ["cable-crossover", "케이블 크로스오버", "chest", "케이블", "wr"],
+    ["low-to-high-cable-fly", "로우 투 하이 케이블 플라이", "chest", "케이블", "wr"],
+    ["chest-dips", "딥스 (가슴)", "chest", "딥스대", "r"],
+    ["push-up", "푸시업", "chest", "맨몸", "r"],
+    ["deadlift", "데드리프트", "back", "바벨", "wr"],
+    ["barbell-row", "바벨 로우 (벤트오버 로우)", "back", "바벨", "wr"],
+    ["pendlay-row", "펜들레이 로우", "back", "바벨", "wr"],
+    ["rack-pull", "랙 풀", "back", "바벨 · 파워랙", "wr"],
+    ["t-bar-row", "T바 로우", "back", "T바 · 머신", "wr"],
+    ["one-arm-dumbbell-row", "원암 덤벨 로우", "back", "덤벨", "wr"],
+    ["pull-up", "풀업 (턱걸이)", "back", "철봉", "r"],
+    ["chin-up", "친업", "back", "철봉", "r"],
+    ["assisted-pull-up", "어시스티드 풀업", "back", "머신", "r"],
+    ["lat-pulldown", "랫풀다운", "back", "케이블 · 머신", "wr"],
+    ["close-grip-lat-pulldown", "클로즈그립 랫풀다운", "back", "케이블", "wr"],
+    ["seated-cable-row", "시티드 케이블 로우", "back", "케이블", "wr"],
+    ["seated-row-machine", "시티드 로우 머신", "back", "머신", "wr"],
+    ["high-row-machine", "하이 로우 머신", "back", "머신", "wr"],
+    ["low-row-machine", "로우 로우 머신", "back", "머신", "wr"],
+    ["iso-lateral-row-mid-row", "미드 로우 (아이소 래터럴 로우)", "back", "머신", "wr"],
+    ["iso-lateral-d-y-row", "DY 로우", "back", "머신", "wr"],
+    ["straight-arm-pulldown", "스트레이트 암 풀다운", "back", "케이블", "wr"],
+    ["pullover-machine", "풀오버 머신", "back", "머신", "wr"],
+    ["chest-supported-row", "체스트 서포티드 로우", "back", "머신 · T바 머신", "wr"],
+    ["back-extension", "백 익스텐션", "back", "백 익스텐션 벤치", "r"],
+    ["lower-back-extension-machine", "로어백 익스텐션 머신", "back", "머신", "wr"],
+    ["good-morning", "굿모닝", "back", "바벨", "wr"],
+    ["barbell-back-squat", "스쿼트 (백스쿼트)", "legs", "바벨 · 파워랙", "wr"],
+    ["front-squat", "프론트 스쿼트", "legs", "바벨 · 파워랙", "wr"],
+    ["smith-machine-squat", "스미스 스쿼트", "legs", "스미스 머신", "wr"],
+    ["goblet-squat", "고블릿 스쿼트", "legs", "덤벨 · 케틀벨", "wr"],
+    ["hack-squat", "핵 스쿼트", "legs", "머신", "wr"],
+    ["squat-machine", "스쿼트 머신 (파워 스쿼트)", "legs", "머신", "wr"],
+    ["belt-squat", "벨트 스쿼트", "legs", "머신", "wr"],
+    ["v-squat-pendulum-squat", "브이 스쿼트 · 펜듈럼 스쿼트", "legs", "머신", "wr"],
+    ["leg-press", "레그 프레스 (45도)", "legs", "머신", "wr"],
+    ["seated-leg-press", "시티드 레그 프레스 (수평)", "legs", "머신", "wr"],
+    ["leg-extension", "레그 익스텐션", "legs", "머신", "wr"],
+    ["lying-leg-curl", "라잉 레그 컬", "legs", "머신", "wr"],
+    ["seated-leg-curl", "시티드 레그 컬", "legs", "머신", "wr"],
+    ["standing-leg-curl", "스탠딩 레그 컬", "legs", "머신", "wr"],
+    ["kneeling-leg-curl", "닐링 레그 컬", "legs", "머신", "wr"],
+    ["glute-ham-raise", "글루트 햄 레이즈 (GHD)", "legs", "GHD", "r"],
+    ["romanian-deadlift", "루마니안 데드리프트", "legs", "바벨 · 덤벨", "wr"],
+    ["stiff-leg-deadlift", "스티프 레그 데드리프트", "legs", "바벨", "wr"],
+    ["sumo-deadlift", "스모 데드리프트", "legs", "바벨", "wr"],
+    ["lunge", "런지 (워킹 런지)", "legs", "덤벨 · 맨몸", "wr"],
+    ["bulgarian-split-squat", "불가리안 스플릿 스쿼트", "legs", "덤벨", "wr"],
+    ["step-up", "스텝업", "legs", "덤벨 · 박스", "wr"],
+    ["hip-thrust", "힙 쓰러스트", "legs", "바벨 · 머신", "wr"],
+    ["standing-hip-thrust", "스탠딩 힙 쓰러스트", "legs", "머신", "wr"],
+    ["glute-bridge", "글루트 브릿지", "legs", "맨몸 · 바벨", "wr"],
+    ["hip-abduction", "힙 어브덕션 (아웃타이)", "legs", "머신", "wr"],
+    ["standing-abductor", "스탠딩 어브덕션", "legs", "머신", "wr"],
+    ["hip-adduction", "힙 어덕션 (이너타이)", "legs", "머신", "wr"],
+    ["cable-glute-kickback", "케이블 킥백", "legs", "케이블", "wr"],
+    ["glute-kickback-machine", "글루트 킥백 머신", "legs", "머신", "wr"],
+    ["multi-hip-machine", "멀티 힙 머신", "legs", "머신", "wr"],
+    ["reverse-hyperextension", "리버스 하이퍼 익스텐션", "legs", "머신", "wr"],
+    ["calf-raise", "카프 레이즈 (스탠딩 · 시티드)", "legs", "머신", "wr"],
+    ["donkey-calf-raise", "동키 카프 레이즈", "legs", "머신", "wr"],
+    ["tibia-dorsi-flexion", "티비아 레이즈 (정강이)", "legs", "머신", "wr"],
+    ["overhead-press", "오버헤드 프레스 (밀리터리 프레스)", "shoulders", "바벨", "wr"],
+    ["dumbbell-shoulder-press", "덤벨 숄더 프레스", "shoulders", "덤벨", "wr"],
+    ["arnold-press", "아놀드 프레스", "shoulders", "덤벨", "wr"],
+    ["smith-shoulder-press", "스미스 숄더 프레스", "shoulders", "스미스 머신", "wr"],
+    ["shoulder-press-machine", "숄더 프레스 머신", "shoulders", "머신", "wr"],
+    ["iso-lateral-super-incline-press", "슈퍼 인클라인 프레스", "shoulders", "머신", "wr"],
+    ["viking-press", "바이킹 프레스", "shoulders", "머신", "wr"],
+    ["lateral-raise", "사이드 레터럴 레이즈", "shoulders", "덤벨", "wr"],
+    ["cable-lateral-raise", "케이블 레터럴 레이즈", "shoulders", "케이블", "wr"],
+    ["lateral-raise-machine", "레터럴 레이즈 머신", "shoulders", "머신", "wr"],
+    ["front-raise", "프론트 레이즈", "shoulders", "덤벨 · 원판 · 케이블", "wr"],
+    ["rear-delt-raise", "벤트오버 레터럴 레이즈 (후면)", "shoulders", "덤벨", "wr"],
+    ["reverse-pec-deck", "리버스 펙덱 (후면)", "shoulders", "머신", "wr"],
+    ["face-pull", "페이스 풀", "shoulders", "케이블", "wr"],
+    ["upright-row", "업라이트 로우", "shoulders", "바벨 · 케이블", "wr"],
+    ["shrug", "슈러그 (승모)", "shoulders", "바벨 · 덤벨 · 머신", "wr"],
+    ["barbell-curl", "바벨 컬", "arms", "바벨", "wr"],
+    ["ez-bar-curl", "EZ바 컬", "arms", "EZ바", "wr"],
+    ["dumbbell-curl", "덤벨 컬", "arms", "덤벨", "wr"],
+    ["hammer-curl", "해머 컬", "arms", "덤벨", "wr"],
+    ["incline-dumbbell-curl", "인클라인 덤벨 컬", "arms", "덤벨 · 벤치", "wr"],
+    ["concentration-curl", "컨센트레이션 컬", "arms", "덤벨", "wr"],
+    ["preacher-curl", "프리처 컬", "arms", "EZ바 · 덤벨", "wr"],
+    ["biceps-curl-machine", "바이셉스 컬 머신", "arms", "머신", "wr"],
+    ["cable-curl", "케이블 컬", "arms", "케이블", "wr"],
+    ["spider-curl", "스파이더 컬", "arms", "덤벨 · EZ바", "wr"],
+    ["skull-crusher", "라잉 트라이셉스 익스텐션 (스컬 크러셔)", "arms", "EZ바", "wr"],
+    ["close-grip-bench-press", "클로즈그립 벤치프레스", "arms", "바벨", "wr"],
+    ["triceps-pushdown", "케이블 푸시다운 (로프 · 바)", "arms", "케이블", "wr"],
+    ["overhead-triceps-extension", "오버헤드 트라이셉스 익스텐션", "arms", "덤벨 · 케이블", "wr"],
+    ["triceps-kickback", "덤벨 킥백", "arms", "덤벨", "wr"],
+    ["triceps-dips", "딥스 (삼두)", "arms", "딥스대", "r"],
+    ["bench-dips", "벤치 딥스", "arms", "벤치", "r"],
+    ["triceps-extension-machine", "트라이셉스 익스텐션 머신", "arms", "머신", "wr"],
+    ["seated-dip-machine", "시티드 딥스 머신", "arms", "머신", "wr"],
+    ["wrist-curl", "리스트 컬", "arms", "바벨 · 덤벨", "wr"],
+    ["reverse-wrist-curl", "리버스 리스트 컬", "arms", "바벨 · 덤벨", "wr"],
+    ["reverse-curl", "리버스 컬", "arms", "EZ바", "wr"],
+    ["gripper", "그립 머신", "arms", "머신 · 악력기", "wr"],
+    ["crunch", "크런치", "abs", "맨몸", "r"],
+    ["bicycle-crunch", "바이시클 크런치", "abs", "맨몸", "r"],
+    ["cable-crunch", "케이블 크런치", "abs", "케이블", "wr"],
+    ["ab-crunch-machine", "앱 크런치 머신", "abs", "머신", "wr"],
+    ["oblique-crunch-machine", "오블리크 크런치 머신", "abs", "머신", "wr"],
+    ["decline-sit-up", "디클라인 싯업", "abs", "복근 보드 · 디클라인 벤치", "r"],
+    ["rotary-torso-machine", "토르소 로테이션 머신", "abs", "머신", "wr"],
+    ["lying-leg-raise", "레그 레이즈", "abs", "맨몸", "r"],
+    ["hanging-leg-raise", "행잉 레그 레이즈", "abs", "철봉", "r"],
+    ["captain-s-chair-leg-raise", "캡틴스 체어 레그 레이즈", "abs", "캡틴스 체어", "r"],
+    ["toes-to-bar", "토 투 바", "abs", "철봉", "r"],
+    ["russian-twist", "러시안 트위스트", "abs", "맨몸 · 원판", "r"],
+    ["ab-wheel-rollout", "앱 롤아웃", "abs", "앱휠", "r"],
+    ["dead-bug", "데드버그", "abs", "맨몸", "r"],
+    ["mountain-climber", "마운틴 클라이머", "abs", "맨몸", "r"],
+    ["plank", "플랭크", "abs", "맨몸", "t"],
+    ["side-plank", "사이드 플랭크", "abs", "맨몸", "t"],
+    ["treadmill", "러닝머신 (걷기 · 달리기 · 경사 걷기 · 무동력)", "cardio", "트레드밀", "cardio"],
+    ["stair-climber-stepmill", "천국의 계단", "cardio", "스텝밀", "cardio"],
+    ["stepper", "스텝퍼", "cardio", "스텝퍼", "cardio"],
+    ["stationary-recumbent-bike", "실내 사이클 (업라이트 · 좌식)", "cardio", "사이클", "cardio"],
+    ["air-bike-assault-bike", "에어바이크", "cardio", "에어바이크", "cardio"],
+    ["elliptical", "일립티컬", "cardio", "크로스 트레이너", "cardio"],
+    ["arc-trainer", "아크 트레이너", "cardio", "아크 트레이너", "cardio"],
+    ["jacob-s-ladder", "제이콥스 래더", "cardio", "제이콥스 래더", "cardio"],
+    ["rowing-machine", "로잉머신", "cardio", "로잉머신", "cardio"],
+    ["skierg", "스키 에르그", "cardio", "스키 에르그", "cardio"],
+    ["jump-rope", "줄넘기", "cardio", "줄넘기", "cardio"],
+    ["burpee", "버피", "cardio", "맨몸", "r"],
+    ["battle-rope", "배틀로프", "cardio", "배틀로프", "t"],
+    ["box-jump", "박스 점프", "cardio", "박스", "r"],
+    ["kettlebell-swing", "케틀벨 스윙", "full", "케틀벨", "wr"],
+    ["power-clean", "클린", "full", "바벨", "wr"],
+    ["thruster", "쓰러스터", "full", "바벨 · 덤벨", "wr"],
+    ["farmer-s-walk", "파머스 워크", "full", "덤벨 · 케틀벨", "wt"],
+    ["sled-push", "슬레드 푸시", "full", "슬레드", "wr"],
+    ["wall-ball", "월볼", "full", "메디신볼", "wr"],
+  ];
+  // Fields per kind: [field, unit, keyboard, optional]. t is seconds, or minutes for cardio.
+  const EX_KINDS = {
+    wr: [['w', 'kg', 'decimal'], ['r', '회', 'numeric']],
+    r: [['r', '회', 'numeric'], ['w', '+kg', 'decimal', true]],
+    t: [['t', '초', 'numeric']],
+    wt: [['w', 'kg', 'decimal'], ['t', '초', 'numeric']],
+    cardio: [['t', '분', 'numeric'], ['d', 'km', 'decimal', true]],
+  };
+  const EXERCISE_MAP = new Map(EXERCISES.map(([id, name, part, equip, kind]) => [id, { id, name, part, equip, kind }]));
+
+  // One logged set: any of w (kg), r (reps), t (time), d (km).
+  function cleanSet(src) {
+    if (!src || typeof src !== 'object') return null;
+    const out = {};
+    for (const [f, max] of [['w', 1000], ['r', 1000], ['t', 100000], ['d', 1000]]) {
+      if (src[f] === undefined || src[f] === null || src[f] === '') continue;
+      const v = Number(src[f]);
+      if (Number.isFinite(v) && v >= 0 && v <= max) out[f] = Math.round(v * 100) / 100;
+    }
+    return Object.keys(out).length ? out : null;
+  }
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '2.2.0';
+  const APP_VERSION = '2.3.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -34,6 +215,7 @@
     chart: svg('M5 20v-7M12 20V5M19 20v-10', 2.2),
     refresh: svg('M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7', 2.2),
     plus: svg('M12 5v14M5 12h14', 2.4),
+    close: svg('M6 6l12 12M18 6L6 18', 2.4),
     camera: svg('M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5zM12 15.6a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2z', 2.1),
   };
 
@@ -57,7 +239,7 @@
 
   // ---------- state ----------
   function defaultState() {
-    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoFormat: 'orig', social: null, cloud: { syncedAt: 0, dirty: false } };
+    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoFormat: 'orig', social: null, cloud: { syncedAt: 0, dirty: false }, logs: {}, customEx: [] };
   }
 
   // Validates anything that comes from storage or a backup file.
@@ -91,6 +273,33 @@
       if (arr.length) out.records[k] = arr;
     }
 
+    // Exercises added by hand, then the sets × kg log ({ date: [{ ex, sets }] }).
+    if (Array.isArray(src.customEx)) {
+      const seenEx = new Set();
+      for (const e of src.customEx) {
+        if (!e || typeof e.id !== 'string' || !/^u_[a-z0-9]{1,20}$/.test(e.id) || typeof e.name !== 'string' || seenEx.has(e.id)) continue;
+        const name = e.name.trim().slice(0, 30);
+        if (!name) continue;
+        seenEx.add(e.id);
+        out.customEx.push({ id: e.id, name, part: typeof e.part === 'string' ? e.part.slice(0, 40) : 'full', kind: EX_KINDS[e.kind] ? e.kind : 'wr' });
+        if (out.customEx.length >= 300) break;
+      }
+    }
+    if (src.logs && typeof src.logs === 'object' && !Array.isArray(src.logs)) {
+      const known = new Set([...EXERCISE_MAP.keys(), ...out.customEx.map(e => e.id)]);
+      for (const [k, list] of Object.entries(src.logs)) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !Array.isArray(list)) continue;
+        const day = [];
+        for (const e of list) {
+          if (!e || !known.has(e.ex) || !Array.isArray(e.sets) || day.some(x => x.ex === e.ex)) continue;
+          const sets = e.sets.map(cleanSet).filter(Boolean).slice(0, 30);
+          if (sets.length) day.push({ ex: e.ex, sets });
+          if (day.length >= 40) break;
+        }
+        if (day.length) out.logs[k] = day;
+      }
+    }
+
     if (Number.isInteger(src.weeklyGoal) && src.weeklyGoal >= 1 && src.weeklyGoal <= 7) out.weeklyGoal = src.weeklyGoal;
     if (src.photoFormat === 'orig' || src.photoFormat === 'story') out.photoFormat = src.photoFormat;
     const so = src.social;
@@ -101,6 +310,7 @@
         userId: so.userId,
         handle: so.handle.slice(0, 20),
         nickname: so.nickname.slice(0, 12),
+        crewWins: Number.isInteger(so.crewWins) && so.crewWins >= 0 ? so.crewWins : 0,
       };
     }
     if (typeof src.lastBackup === 'string' && !Number.isNaN(Date.parse(src.lastBackup))) out.lastBackup = src.lastBackup;
@@ -142,6 +352,7 @@
     statsYear: today().getFullYear(),
     sheetDate: null,
     partSheet: null, // { id (null = new), color } while the part sheet is open
+    exSheet: null, // the exercise picker / set editor / history in the bottom sheet
     popId: null,
     latestVersion: null,
     updating: false,
@@ -253,6 +464,7 @@
       total: keys.length, bestStreak, bestGoalRun, bestMonth: Math.max(0, ...Object.values(months)), fullMonth,
       partCounts, maxPartsDay, allParts, photos: photoThumbs.size,
       perfectWeek, weekend, mondays, xmas, newYear, comeback,
+      crewWins: (state.social && state.social.crewWins) || 0,
     };
   }
 
@@ -265,6 +477,7 @@
     { id: 'parts', name: '부위', color: '#D4FF3F', shape: 'square' },
     { id: 'photo', name: '오운완 사진', color: '#F4F4F0', shape: 'circle' },
     { id: 'special', name: '스페셜', color: '#FFD43B', shape: 'shield' },
+    { id: 'crew', name: '크루 1등', color: '#FF8FB1', shape: 'square' },
   ];
   const flag = v => [v ? 1 : 0, 1];
   const BADGES = [
@@ -309,6 +522,10 @@
     { id: 'xmas', group: 'special', num: '12.25', unit: 'Xmas', name: '메리 운동마스', desc: '크리스마스에 출석', of: s => flag(s.xmas) },
     { id: 'newYear', group: 'special', num: '1.1', unit: 'New year', name: '새해 첫 운동', desc: '1월 1일에 출석', of: s => flag(s.newYear) },
     { id: 'comeback', group: 'special', num: 'Back', unit: 'Comeback', name: '다시 시작', desc: '2주 넘게 쉬다가 복귀', of: s => flag(s.comeback) },
+    ...[[1, '크루 1등', '크루에서 한 주 1등'], [5], [10], [25]].map(([n, name, desc]) => ({
+      id: `crewWin${n}`, group: 'crew', num: String(n), unit: n === 1 ? 'Win' : 'Wins',
+      name: name || `크루 1등 ${n}번`, desc: desc || `크루에서 한 주 1등 ${n}번`, of: s => [s.crewWins, n],
+    })),
   ];
 
   // Badges that never run out: one per month (attend MONTH_GOAL days that month) and
@@ -618,24 +835,27 @@
   // iOS shows the front camera mirrored while shooting but saves the photo un-mirrored,
   // so selfies look flipped. iPhone photos name the lens in EXIF ("... front camera ..."),
   // which lets us flip those back automatically. Best effort: any parse problem → false.
-  async function isUnmirroredSelfie(file) {
+  // EXIF of a JPEG (lens, orientation, the day it was taken), or null.
+  async function exifOf(file) {
     try {
       const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
-      if (v.getUint16(0) !== 0xFFD8) return false; // not a JPEG
+      if (v.getUint16(0) !== 0xFFD8) return null; // not a JPEG
       let off = 2;
       while (off + 10 <= v.byteLength) {
         const marker = v.getUint16(off);
-        if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) return false; // scan data: no EXIF
-        if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) { // APP1 "Exif"
-          const { lens, orientation } = readExif(v, off + 10);
-          const alreadyMirrored = [2, 4, 5, 7].includes(orientation);
-          return /front/i.test(lens) && !alreadyMirrored;
-        }
+        if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) return null; // scan data: no EXIF
+        if (marker === 0xFFE1 && v.getUint32(off + 4) === 0x45786966) return readExif(v, off + 10); // APP1 "Exif"
         off += 2 + v.getUint16(off + 2);
       }
     } catch (e) { /* unreadable EXIF */ }
-    return false;
+    return null;
   }
+
+  const isUnmirroredSelfie = exif => Boolean(exif) && /front/i.test(exif.lens) && ![2, 4, 5, 7].includes(exif.orientation);
+
+  // The day a photo was taken: its EXIF date, else the file's date. Crew proofs need today's.
+  const takenKey = (exif, file) => (exif && /^\d{4}-\d{2}-\d{2}$/.test(exif.taken) ? exif.taken
+    : file.lastModified ? keyOf(new Date(file.lastModified)) : null);
 
   function readExif(v, tiff) {
     const little = v.getUint16(tiff) === 0x4949;
@@ -650,16 +870,24 @@
     const o = entry(ifd0, 0x0112);
     const orientation = o < 0 ? 1 : u16(o + 8);
     let lens = '';
+    let taken = '';
     const exifPtr = entry(ifd0, 0x8769);
     if (exifPtr >= 0) {
-      const l = entry(u32(exifPtr + 8), 0xA434); // LensModel
+      const exifIfd = u32(exifPtr + 8);
+      const l = entry(exifIfd, 0xA434); // LensModel
       if (l >= 0) {
         const count = u32(l + 4);
         const start = count > 4 ? u32(l + 8) : l + 8;
         for (let i = 0; i < count - 1 && i < 120; i++) lens += String.fromCharCode(v.getUint8(tiff + start + i));
       }
+      const t = entry(exifIfd, 0x9003); // DateTimeOriginal, "YYYY:MM:DD HH:MM:SS"
+      if (t >= 0) {
+        const start = u32(t + 8);
+        for (let i = 0; i < 10; i++) taken += String.fromCharCode(v.getUint8(tiff + start + i));
+        taken = taken.replace(/:/g, '-');
+      }
     }
-    return { lens, orientation };
+    return { lens, orientation, taken };
   }
 
   // Puts the photo in the frame. Story frames (9:16) take portrait photos edge to edge;
@@ -955,6 +1183,7 @@
   }
 
   let photoKey = null; // the date the photo belongs to
+  let photoTaken = null; // the day the picked photo was taken (crew proofs need today's)
 
   function startPhoto(key = keyOf(today())) {
     if (!attended(key)) {
@@ -1052,7 +1281,9 @@
       const img = await loadImage(file);
       if (photoSource && photoSource.close) photoSource.close();
       photoSource = img;
-      setPhotoFlip(await isUnmirroredSelfie(file));
+      const exif = await exifOf(file);
+      setPhotoFlip(isUnmirroredSelfie(exif));
+      photoTaken = takenKey(exif, file);
     } catch (e) {
       photoLoading.textContent = '이 사진은 열 수 없어요. 다른 사진을 골라 주세요';
       return;
@@ -1073,6 +1304,7 @@
     photoSource = null;
     photoUrl = '';
     photoBlob = null;
+    photoTaken = null;
     flushQueuedBadges();
   }
 
@@ -1084,18 +1316,25 @@
     if (!photoBlob) return;
     const key = photoKey || keyOf(today());
     const blob = photoBlob;
+    const taken = photoTaken;
     const badgesBefore = earnedBadges();
     // Keep it in the app under its date. Runs alongside the share sheet, which has to
     // open straight from the tap.
     const stored = storeDayPhoto(key, blob, photoSource, photoFlip).then(() => true, () => false);
     await shareOrDownload(new File([blob], `owoonwan-${key}.jpg`, { type: 'image/jpeg' }));
     const ok = await stored;
+    let proof = null;
     if (ok) {
       cloudPutPhoto(key);
       cheer.queued.push(...newBadges(badgesBefore));
+      if (key === keyOf(today()) && loggedIn()) proof = await sendProof(key, blob, taken);
     }
     renderCurrent();
-    toast(ok ? `${md(key)} 오운완으로 저장했어요` : '앱에 저장하지 못했어요. 사진은 앨범에 저장해 두세요');
+    if (!ok) toast('앱에 저장하지 못했어요. 사진은 앨범에 저장해 두세요');
+    else if (proof === 'ok') toast(`${md(key)} 오운완 저장 · 크루 인증 완료`);
+    else if (proof === 'old') toast('저장했어요. 크루 인증은 오늘 찍은 사진만 돼요');
+    else if (proof) toast(`저장했어요. 크루 인증은 못 했어요: ${proof}`);
+    else toast(`${md(key)} 오운완으로 저장했어요`);
   }
 
   // ---------- 오운완 photo diary ----------
@@ -1248,9 +1487,310 @@
     renderCurrent();
     toast('사진을 지웠어요');
     if (loggedIn()) api(`/api/backup/photos/${k}`, { method: 'DELETE' }).catch(() => { /* next sync may bring it back */ });
+    if (loggedIn() && k === keyOf(today())) {
+      api(`/api/proofs/${k}`, { method: 'DELETE' }).then(() => { crew.stale = true; }, () => { /* stays proven */ });
+    }
   }
 
   const md = key => { const d = parseKey(key); return `${d.getMonth() + 1}월 ${d.getDate()}일`; };
+
+  // ---------- exercise log (optional) ----------
+  // Sets × kg per exercise per day, on top of the plain check-in. The bottom sheet
+  // shows a picker, a set editor, or one exercise's history (ui.exSheet.step).
+  const exById = id => EXERCISE_MAP.get(id) || state.customEx.find(e => e.id === id) || null;
+  const shortName = n => n.replace(/\s*\(.*\)$/, '');
+  const allExercises = () => [...EXERCISE_MAP.values(), ...state.customEx.map(e => ({ ...e, equip: '직접 추가' }))];
+
+  function setText(kind, s) {
+    switch (kind) {
+      case 'wr': return `${s.w}kg × ${s.r}`;
+      case 'r': return s.w ? `${s.r}회 +${s.w}kg` : `${s.r}회`;
+      case 't': return `${s.t}초`;
+      case 'wt': return `${s.w}kg · ${s.t}초`;
+      case 'cardio': return s.d ? `${s.t}분 · ${s.d}km` : `${s.t}분`;
+      default: return '';
+    }
+  }
+
+  function logSummary(ex, sets) {
+    const texts = sets.map(st => setText(ex.kind, st));
+    if (texts.every(t => t === texts[0])) return sets.length > 1 ? `${texts[0]} · ${sets.length}세트` : texts[0];
+    return texts.length > 3 ? `${texts.slice(0, 3).join(', ')} 외 ${texts.length - 3}세트` : texts.join(', ');
+  }
+
+  function exerciseHistory(exId) {
+    const out = [];
+    for (const [date, list] of Object.entries(state.logs)) {
+      const e = list.find(x => x.ex === exId);
+      if (e) out.push({ date, sets: e.sets });
+    }
+    return out.sort((a, b) => (a.date < b.date ? 1 : -1));
+  }
+
+  // The heaviest set (weights), most reps (bodyweight), longest (time), farthest (cardio).
+  function bestSet(ex, history) {
+    let best = null;
+    let top = -1;
+    for (const { sets } of history) {
+      for (const st of sets) {
+        const v = ex.kind === 'wr' ? (st.w || 0) * 1e4 + (st.r || 0)
+          : ex.kind === 'wt' ? (st.w || 0) * 1e5 + (st.t || 0)
+            : ex.kind === 'r' ? (st.r || 0) * 1e4 + (st.w || 0)
+              : ex.kind === 'cardio' ? (st.d || 0) * 1e5 + (st.t || 0) : (st.t || 0);
+        if (v > top) { top = v; best = st; }
+      }
+    }
+    return best;
+  }
+  const oneRepMax = (ex, st) => (ex.kind === 'wr' && st && st.w > 0 && st.r > 1 && st.r <= 12 ? Math.round(st.w * (1 + st.r / 30)) : 0);
+
+  function recentExerciseIds() {
+    const last = {};
+    for (const [date, list] of Object.entries(state.logs)) for (const e of list) if (!last[e.ex] || date > last[e.ex]) last[e.ex] = date;
+    return Object.keys(last).sort((a, b) => (last[a] < last[b] ? 1 : -1)).slice(0, 12);
+  }
+
+  // The list under the part tiles (오늘 tab) and in a day's sheet.
+  function logBlock(date, from) {
+    const list = state.logs[date] || [];
+    const rows = list.map(e => {
+      const ex = exById(e.ex);
+      if (!ex) return '';
+      return `<button class="log-row" data-action="ex-edit" data-ex="${esc(e.ex)}" data-date="${date}" data-from="${from}">
+          <span><b>${esc(shortName(ex.name))}</b><small>${esc(logSummary(ex, e.sets))}</small></span>${ICON.next}</button>`;
+    }).join('');
+    return `<div class="log-block">${rows}
+        <button class="log-add" data-action="ex-add" data-date="${date}" data-from="${from}">${ICON.plus}<span>${list.length ? '종목 추가' : '종목·무게 기록하기'}</span>${list.length ? '' : '<small>선택</small>'}</button>
+      </div>`;
+  }
+
+  function openExercisePicker(date, from) {
+    ui.sheetDate = null;
+    ui.partSheet = null;
+    ui.exSheet = { step: 'pick', date, from, filter: dayParts(date).length ? 'today' : 'all', q: '' };
+    renderExSheet();
+    showSheet();
+  }
+
+  // back: where 'back' goes — 'pick', 'day', 'history', or null (close).
+  function openExerciseLog(date, exId, back) {
+    const ex = exById(exId);
+    if (!ex) return;
+    const entry = (state.logs[date] || []).find(e => e.ex === exId);
+    const before = exerciseHistory(exId).find(h => h.date < date) || null;
+    const source = entry ? entry.sets : before ? before.sets : [{}];
+    const prev = ui.exSheet || {};
+    ui.sheetDate = null;
+    ui.partSheet = null;
+    ui.exSheet = {
+      step: 'log', date, ex: exId, back, existing: Boolean(entry), last: before,
+      sets: source.map(st => ({ ...st })), from: prev.from, filter: prev.filter, q: prev.q || '',
+    };
+    renderExSheet();
+    showSheet();
+  }
+
+  function openExerciseHistory(exId) {
+    ui.sheetDate = null;
+    ui.partSheet = null;
+    ui.exSheet = { step: 'history', ex: exId };
+    renderExSheet();
+    showSheet();
+  }
+
+  function exChips() {
+    const x = ui.exSheet;
+    const today = dayParts(x.date);
+    const chips = [];
+    if (today.length) chips.push(['today', '오늘 부위']);
+    chips.push(['all', '전체']);
+    for (const p of state.parts) chips.push([p.id, p.name]);
+    chips.push(['full', '전신']);
+    return chips.map(([f, label]) => `<button class="pill" data-action="ex-filter" data-filter="${esc(f)}" aria-pressed="${x.filter === f}">${esc(label)}</button>`).join('');
+  }
+
+  function renderExList() {
+    const x = ui.exSheet;
+    const box = $('#ex-list');
+    if (!x || !box) return;
+    const q = x.q.trim().toLowerCase().replace(/\s+/g, '');
+    let pool = allExercises();
+    if (q) pool = pool.filter(e => e.name.toLowerCase().replace(/\s+/g, '').includes(q) || e.equip.replace(/\s+/g, '').includes(q));
+    else if (x.filter === 'today') { const parts = dayParts(x.date); pool = pool.filter(e => parts.includes(e.part)); }
+    else if (x.filter !== 'all') pool = pool.filter(e => e.part === x.filter);
+    const recent = recentExerciseIds();
+    const rank = e => { const i = recent.indexOf(e.id); return i < 0 ? 99 : i; };
+    pool = pool.map((e, i) => ({ e, i })).sort((a, b) => rank(a.e) - rank(b.e) || a.i - b.i).map(o => o.e);
+    const done = new Set((state.logs[x.date] || []).map(e => e.ex));
+    const rows = pool.map(e => `
+      <button class="ex-row" data-action="ex-pick" data-ex="${esc(e.id)}">
+        <span><b>${esc(e.name)}</b><small>${esc(e.equip)}${recent.includes(e.id) ? ' · 최근' : ''}</small></span>${done.has(e.id) ? '<i>기록함</i>' : ''}
+      </button>`).join('');
+    const typed = x.q.trim().slice(0, 30);
+    const custom = typed && !pool.some(e => e.name === typed)
+      ? `<button class="ex-row ex-custom" data-action="ex-custom"><span><b>'${esc(typed)}' 새 종목으로 추가</b><small>무게 × 횟수로 기록해요</small></span>${ICON.plus}</button>` : '';
+    box.innerHTML = rows + custom + (!rows && !custom ? '<p class="note">이 부위에 맞는 종목이 없어요. 검색해서 새 종목으로 추가할 수 있어요.</p>' : '');
+  }
+
+  function renderExSheet() {
+    const x = ui.exSheet;
+    if (!x) return;
+    if (x.step === 'pick') {
+      sheet.innerHTML = `
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <div><p class="kicker">${md(x.date)}</p><h2 id="sheet-title">종목 고르기</h2></div>
+          <button class="btn" data-action="ex-back">${x.from === 'day' ? '뒤로' : '닫기'}</button>
+        </div>
+        <div class="field ex-search"><input id="ex-search" type="search" value="${esc(x.q)}" placeholder="종목 검색 (예: 벤치, 레그)" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="종목 검색"></div>
+        <div class="ex-chips" id="ex-chips">${exChips()}</div>
+        <div class="ex-list" id="ex-list"></div>`;
+      renderExList();
+      return;
+    }
+    const ex = exById(x.ex);
+    if (!ex) { closeSheet(); return; }
+    if (x.step === 'history') {
+      const h = exerciseHistory(ex.id);
+      const best = bestSet(ex, h);
+      const orm = oneRepMax(ex, best);
+      sheet.innerHTML = `
+        <div class="handle" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <div><p class="kicker">${esc(ex.equip)}</p><h2 id="sheet-title">${esc(shortName(ex.name))}</h2></div>
+          <button class="btn" data-action="close-sheet">닫기</button>
+        </div>
+        ${best ? `<div class="ex-best"><span class="kicker">Best</span><b class="d">${esc(setText(ex.kind, best))}</b>${orm ? `<small>예상 1RM ${orm}kg</small>` : ''}</div>` : ''}
+        <div class="ex-history">${h.map(r => `
+          <button class="log-row" data-action="ex-edit" data-ex="${esc(ex.id)}" data-date="${r.date}" data-from="history">
+            <span><b>${fmtLong(parseKey(r.date))}</b><small>${esc(logSummary(ex, r.sets))}</small></span>${ICON.next}</button>`).join('') || '<p class="note">아직 기록이 없어요.</p>'}</div>`;
+      return;
+    }
+    const fields = EX_KINDS[ex.kind];
+    const rows = x.sets.map((st, i) => `
+      <div class="set-row">
+        <span class="set-no d">${i + 1}</span>
+        ${fields.map(([f, unit, mode, optional]) => `<label class="set-field"><input type="text" inputmode="${mode}" data-set="${i}" data-f="${f}" value="${st[f] === undefined ? '' : esc(st[f])}" placeholder="${optional ? '-' : '0'}" autocomplete="off" aria-label="${i + 1}세트 ${unit}"><span>${unit}</span></label>`).join('')}
+        <button class="set-del" data-action="set-del" data-i="${i}" aria-label="${i + 1}세트 지우기">${ICON.close}</button>
+      </div>`).join('');
+    sheet.innerHTML = `
+      <div class="handle" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <div><p class="kicker">${md(x.date)} · ${esc(ex.equip)}</p><h2 id="sheet-title">${esc(shortName(ex.name))}</h2></div>
+        <button class="btn" data-action="ex-back">${x.back ? '뒤로' : '닫기'}</button>
+      </div>
+      ${x.last ? `<p class="ex-last">지난번 ${shortDay(x.last.date)} · ${esc(logSummary(ex, x.last.sets))}</p>` : ''}
+      <div class="set-list">${rows}</div>
+      <button class="btn set-add" data-action="set-add">${ICON.plus}<span>세트 추가</span></button>
+      <button class="photo-cta" data-action="ex-save"><span>저장</span></button>
+      ${x.existing ? '<button class="btn danger part-delete" data-action="ex-delete">이 종목 기록 삭제</button>' : ''}`;
+  }
+
+  function addCustomExercise() {
+    const x = ui.exSheet;
+    const name = (x.q || '').trim().slice(0, 30);
+    if (!name) return;
+    const parts = dayParts(x.date);
+    // Under the part being browsed, or today's only part; otherwise 전신 (checks nothing).
+    const part = x.filter !== 'all' && x.filter !== 'today' ? x.filter : parts.length === 1 ? parts[0] : 'full';
+    const id = `u_${Date.now().toString(36)}`;
+    state.customEx.push({ id, name, part, kind: 'wr' });
+    save();
+    openExerciseLog(x.date, id, 'pick');
+  }
+
+  // Reads the editor's sets; a set counts when its required fields are filled.
+  function editedSets(ex) {
+    const fields = EX_KINDS[ex.kind];
+    const out = [];
+    for (const raw of ui.exSheet.sets) {
+      const st = {};
+      let ok = true;
+      for (const [f, , , optional] of fields) {
+        const v = parseFloat(String(raw[f] === undefined ? '' : raw[f]).replace(',', '.'));
+        if (Number.isFinite(v) && v >= 0) st[f] = v;
+        else if (!optional) ok = false;
+      }
+      const clean = ok && cleanSet(st);
+      if (clean) out.push(clean);
+    }
+    return out;
+  }
+
+  function saveExercise() {
+    const x = ui.exSheet;
+    const ex = x && exById(x.ex);
+    if (!ex) return;
+    const sets = editedSets(ex);
+    if (!sets.length) { toast('세트를 하나 이상 채워 주세요'); return; }
+    const list = state.logs[x.date] || [];
+    const i = list.findIndex(e => e.ex === x.ex);
+    if (i >= 0) list[i] = { ex: x.ex, sets }; else list.push({ ex: x.ex, sets });
+    state.logs[x.date] = list;
+    save();
+    // Logging an exercise also checks its part for that day.
+    if (state.parts.some(p => p.id === ex.part) && !dayParts(x.date).includes(ex.part)) cheerToggle(x.date, ex.part);
+    toast(`${shortName(ex.name)} 저장했어요`);
+    leaveExercise(x);
+    renderCurrent();
+  }
+
+  function deleteExercise() {
+    const x = ui.exSheet;
+    const ex = x && exById(x.ex);
+    if (!ex || !confirm(`${md(x.date)} ${shortName(ex.name)} 기록을 지울까요?`)) return;
+    const rest = (state.logs[x.date] || []).filter(e => e.ex !== x.ex);
+    if (rest.length) state.logs[x.date] = rest; else delete state.logs[x.date];
+    save();
+    toast('기록을 지웠어요');
+    leaveExercise(x);
+    renderCurrent();
+  }
+
+  // After saving or deleting, go back to where the editor was opened from.
+  function leaveExercise(x) {
+    if (x.back === 'day') openSheet(x.date);
+    else if (x.back === 'history') openExerciseHistory(x.ex);
+    else closeSheet();
+  }
+
+  function exerciseBack() {
+    const x = ui.exSheet;
+    if (!x) return;
+    if (x.step === 'log' && x.back === 'pick') {
+      ui.exSheet = { step: 'pick', date: x.date, from: x.from, filter: x.filter || 'all', q: x.q || '' };
+      renderExSheet();
+    } else if (x.step === 'log' && x.back === 'history') openExerciseHistory(x.ex);
+    else if ((x.step === 'log' && x.back === 'day') || (x.step === 'pick' && x.from === 'day')) openSheet(x.date);
+    else closeSheet();
+  }
+
+  // 기록 tab: every exercise logged, latest first, with its best set.
+  function liftsSection() {
+    const byEx = new Map();
+    for (const [date, list] of Object.entries(state.logs)) {
+      for (const e of list) {
+        if (!byEx.has(e.ex)) byEx.set(e.ex, []);
+        byEx.get(e.ex).push({ date, sets: e.sets });
+      }
+    }
+    const rows = [...byEx.entries()]
+      .map(([id, h]) => ({ ex: exById(id), h: h.sort((a, b) => (a.date < b.date ? 1 : -1)) }))
+      .filter(r => r.ex)
+      .sort((a, b) => (a.h[0].date < b.h[0].date ? 1 : -1));
+    const body = rows.length ? rows.map(r => {
+      const best = bestSet(r.ex, r.h);
+      const orm = oneRepMax(r.ex, best);
+      return `<button class="lift-row" data-action="ex-history" data-ex="${esc(r.ex.id)}">
+          <span class="lift-name"><b>${esc(shortName(r.ex.name))}</b><small>${r.h.length}번 · 마지막 ${shortDay(r.h[0].date)}</small></span>
+          <span class="lift-best"><b>${best ? esc(setText(r.ex.kind, best)) : ''}</b>${orm ? `<small>1RM ${orm}kg</small>` : ''}</span>
+        </button>`;
+    }).join('') : '<p class="note lift-empty">오늘 탭에서 종목과 무게를 기록하면 종목별 최고 기록이 여기 쌓여요.</p>';
+    return `<section class="block">
+        <div class="section-head"><h2>종목별 기록</h2><span class="kicker">All time</span></div>
+        ${body}
+      </section>`;
+  }
 
   // ---------- account & server ----------
   // An @handle + password account keeps the records and 오운완 photos on the server
@@ -1298,7 +1838,7 @@
   // later, and opening the app pulls. A new phone gets everything back on login. If
   // this phone has unsent changes while another phone also saved, check-ins are merged.
   function cloudData() {
-    return { records: state.records, parts: state.parts, weeklyGoal: state.weeklyGoal, photoFormat: state.photoFormat };
+    return { records: state.records, parts: state.parts, weeklyGoal: state.weeklyGoal, photoFormat: state.photoFormat, logs: state.logs, customEx: state.customEx };
   }
   function cloudSig() { return JSON.stringify(cloudData()); }
 
@@ -1346,14 +1886,25 @@
   // Replaces (or, with merge, unions) this phone's records with the server's.
   // Returns the server copy's signature, to tell whether we still differ from it.
   function applyCloudData(data, merge) {
-    const incoming = normalize({ records: data.records, parts: data.parts, weeklyGoal: data.weeklyGoal, photoFormat: data.photoFormat });
-    const serverSig = JSON.stringify({ records: incoming.records, parts: incoming.parts, weeklyGoal: incoming.weeklyGoal, photoFormat: incoming.photoFormat });
+    const incoming = normalize({ records: data.records, parts: data.parts, weeklyGoal: data.weeklyGoal, photoFormat: data.photoFormat, logs: data.logs, customEx: data.customEx });
+    const serverSig = JSON.stringify({ records: incoming.records, parts: incoming.parts, weeklyGoal: incoming.weeklyGoal, photoFormat: incoming.photoFormat, logs: incoming.logs, customEx: incoming.customEx });
+    // A backup from an older version has no exercise log; keep this phone's.
+    const hasLogs = data.logs !== undefined;
     if (!merge) {
       state.records = incoming.records;
       state.parts = incoming.parts;
       state.weeklyGoal = incoming.weeklyGoal;
       state.photoFormat = incoming.photoFormat;
+      if (hasLogs) {
+        state.logs = incoming.logs;
+        state.customEx = incoming.customEx;
+      }
       return serverSig;
+    }
+    for (const e of incoming.customEx) if (!state.customEx.some(x => x.id === e.id)) state.customEx.push(e);
+    for (const [k, list] of Object.entries(incoming.logs)) {
+      const mine = state.logs[k] || [];
+      state.logs[k] = mine.concat(list.filter(e => !mine.some(x => x.ex === e.ex)));
     }
     const parts = state.parts.slice();
     for (const p of incoming.parts) if (!parts.some(q => q.id === p.id)) parts.push(p);
@@ -1484,6 +2035,7 @@
   const fieldValue = sel => ($(sel) ? $(sel).value : '');
 
   function showLoggedOut(handle) {
+    resetCrews();
     account.auth = 'login';
     account.form = { handle: handle || '', password: '' };
     ui.pwForm = false;
@@ -1524,8 +2076,11 @@
       account.form = { handle: '', password: '' };
       account.busy = false;
       toast(login ? `@${user.handle}로 로그인했어요` : `@${user.handle} 아이디를 만들었어요`);
+      resetCrews();
       renderCurrent();
       cloudSync({ welcome: login }); // brings records and photos back (login) or sends them up (sign-up)
+      if (crew.pendingCode) joinCrew(crew.pendingCode);
+      else if (ui.tab === 'crew') loadCrews();
     } catch (err) {
       account.busy = false;
       if (login) account.form.password = '';
@@ -1583,11 +2138,349 @@
       </form>`;
   }
 
+  // ---- crews ----
+  // Invite-only groups (up to 8) racing on how many days this week each member proved
+  // with that day's 오운완 photo. list: my crews (null until loaded); board: the
+  // selected crew's week; viewer: the proof photo open full screen.
+  const CREW_PICK_KEY = 'gymcheck:crew';
+  const crew = { list: null, current: null, board: null, error: '', busy: false, stale: true, manage: false, pendingCode: null, viewer: null };
+  const partNames = key => dayParts(key).map(id => partById(id)).filter(Boolean).map(p => p.name);
+  const shortDay = key => `${Number(key.slice(5, 7))}.${Number(key.slice(8, 10))}`;
+
+  function weekRange() {
+    const mon = startOfWeek(today());
+    return { from: keyOf(mon), to: keyOf(addDays(mon, 6)), lastFrom: keyOf(addDays(mon, -7)), lastTo: keyOf(addDays(mon, -1)) };
+  }
+
+  function resetCrews() {
+    Object.assign(crew, { list: null, current: null, board: null, error: '', stale: true, manage: false, viewer: null });
+  }
+
+  const renderCrewIfShown = () => { if (ui.tab === 'crew') renderCrew(); };
+
+  // Weeks this account came first in a crew; the server keeps the count.
+  function noteWins(n) {
+    if (!state.social || !Number.isInteger(n)) return;
+    const was = state.social.crewWins || 0;
+    if (n === was) return;
+    const before = earnedBadges();
+    state.social.crewWins = n;
+    save();
+    if (n > was) {
+      const fresh = newBadges(before);
+      if (fresh.length) openCheer(false, fresh);
+      else toast('지난주 크루 1등이에요 🏆');
+    }
+  }
+
+  async function loadCrews({ quiet = false } = {}) {
+    if (!loggedIn()) return;
+    if (!quiet) { crew.error = ''; renderCrewIfShown(); }
+    try {
+      const r = await api('/api/crews');
+      crew.list = r.crews;
+      crew.error = '';
+      noteWins(r.wins);
+      let saved = null;
+      try { saved = localStorage.getItem(CREW_PICK_KEY); } catch (e) { /* no saved pick */ }
+      if (!crew.list.some(c => c.id === crew.current)) {
+        crew.current = (crew.list.find(c => c.id === saved) || crew.list[0] || {}).id || null;
+        crew.board = null;
+      }
+    } catch (e) {
+      crew.error = e.message;
+    }
+    if (crew.current) await loadBoard();
+    else renderCrewIfShown();
+  }
+
+  async function loadBoard() {
+    const id = crew.current;
+    if (!id) return;
+    const w = weekRange();
+    try {
+      const r = await api(`/api/crews/${id}?from=${w.from}&to=${w.to}&lastFrom=${w.lastFrom}&lastTo=${w.lastTo}`);
+      if (crew.current !== id) return;
+      crew.board = r;
+      crew.stale = false;
+      crew.error = '';
+      noteWins(r.wins);
+    } catch (e) {
+      if (e.status === 404 && crew.list) { // left or removed meanwhile
+        crew.list = crew.list.filter(c => c.id !== id);
+        crew.current = (crew.list[0] || {}).id || null;
+        crew.board = null;
+        if (crew.current) return loadBoard();
+      } else crew.error = e.message;
+    }
+    renderCrewIfShown();
+    if (crew.viewer) renderViewer();
+  }
+
+  function pickCrew(id) {
+    crew.current = id;
+    crew.board = null;
+    try { localStorage.setItem(CREW_PICK_KEY, id); } catch (e) { /* picks the first next time */ }
+    renderCrewIfShown();
+    loadBoard();
+  }
+
+  async function createCrew() {
+    const input = $('#crew-name');
+    const name = input ? input.value.trim() : '';
+    if (!name) { if (input) input.focus(); toast('크루 이름을 정해 주세요'); return; }
+    if (crew.busy) return;
+    crew.busy = true;
+    try {
+      const { crew: c } = await api('/api/crews', { method: 'POST', body: { name } });
+      crew.manage = false;
+      crew.list = (crew.list || []).concat(c);
+      toast(`'${c.name}' 크루를 만들었어요. 친구를 초대해 보세요`);
+      pickCrew(c.id);
+    } catch (e) {
+      toast(e.message);
+    }
+    crew.busy = false;
+  }
+
+  async function joinCrew(raw) {
+    const code = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    crew.pendingCode = null;
+    if (code.length !== 6) { toast('초대 코드는 6자리예요'); return; }
+    if (crew.busy) return;
+    crew.busy = true;
+    try {
+      const r = await api('/api/crews/join', { method: 'POST', body: { code } });
+      crew.manage = false;
+      if (!(crew.list || []).some(c => c.id === r.crew.id)) crew.list = (crew.list || []).concat(r.crew);
+      toast(r.already ? `이미 '${r.crew.name}' 크루에 있어요` : `'${r.crew.name}' 크루에 들어왔어요`);
+      pickCrew(r.crew.id);
+    } catch (e) {
+      toast(e.message);
+    }
+    crew.busy = false;
+  }
+
+  async function leaveCrew() {
+    const c = crew.board && crew.board.crew;
+    if (!c || !confirm(`'${c.name}' 크루에서 나갈까요?\n지금까지 인증한 사진은 다른 크루에서도 계속 보여요.`)) return;
+    try {
+      await api(`/api/crews/${c.id}/me`, { method: 'DELETE' });
+      crew.list = (crew.list || []).filter(x => x.id !== c.id);
+      crew.current = null;
+      crew.board = null;
+      toast('크루에서 나왔어요');
+      loadCrews();
+    } catch (e) {
+      toast(e.message);
+    }
+  }
+
+  function shareInvite() {
+    const c = crew.board && crew.board.crew;
+    if (!c) return;
+    const link = `${location.origin}${location.pathname}?crew=${c.code}`;
+    const text = `짐첵 '${c.name}' 크루에서 같이 오운완 인증해요! 초대 코드 ${c.code}\n${link}`;
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('초대 링크를 복사했어요'), () => toast(link));
+    else toast(link);
+  }
+
+  async function myCrewCount() {
+    if (crew.list === null) await loadCrews({ quiet: true });
+    return (crew.list || []).length;
+  }
+
+  // Sends today's saved 오운완 as the proof. 'ok', 'old' (not taken today), an error
+  // message, or null when there's no crew to prove to.
+  async function sendProof(key, blob, taken) {
+    if (!(await myCrewCount())) return null;
+    if (taken !== key) return 'old';
+    try {
+      const form = new FormData();
+      form.append('parts', JSON.stringify(partNames(key)));
+      form.append('image', new File([await proofJpeg(blob)], `${key}.jpg`, { type: 'image/jpeg' }));
+      await api(`/api/proofs/${key}`, { method: 'PUT', form });
+      crew.stale = true;
+      if (ui.tab === 'crew') loadBoard();
+      return 'ok';
+    } catch (e) {
+      return e.message;
+    }
+  }
+
+  async function proofJpeg(blob) {
+    const img = await loadImage(blob);
+    const k = Math.min(1, 1440 / Math.max(img.width, img.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.width * k);
+    c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    if (img.close) img.close();
+    return new Promise((resolve, reject) => c.toBlob(b => (b ? resolve(b) : reject(new Error('jpeg'))), 'image/jpeg', 0.85));
+  }
+
+  const proofOf = (userId, date) => (crew.board ? crew.board.proofs.find(p => p.userId === userId && p.date === date) : null);
+
+  async function cheerProof(userId, date) {
+    const p = proofOf(userId, date);
+    if (!p) return;
+    const next = !p.fired;
+    p.fired = next;
+    p.fires += next ? 1 : -1;
+    renderCrewIfShown();
+    if (crew.viewer) renderViewer();
+    if (next && navigator.vibrate) navigator.vibrate(8);
+    try {
+      const r = await api(`/api/proofs/${userId}/${date}/cheer`, { method: 'POST' });
+      p.fired = r.fired;
+      p.fires = r.fires;
+    } catch (e) {
+      p.fired = !next;
+      p.fires += next ? -1 : 1;
+      toast(e.message);
+    }
+    renderCrewIfShown();
+    if (crew.viewer) renderViewer();
+  }
+
+  // ---- proof photo, full screen ----
+  const viewerEl = $('#viewer');
+  function openViewer(userId, date) {
+    crew.viewer = { userId, date };
+    renderViewer();
+    viewerEl.hidden = false;
+    void viewerEl.offsetHeight;
+    viewerEl.classList.add('open');
+  }
+  function renderViewer() {
+    const v = crew.viewer;
+    const p = v && proofOf(v.userId, v.date);
+    const m = p && crew.board.members.find(x => x.id === v.userId);
+    if (!p || !m) { closeViewer(); return; }
+    viewerEl.innerHTML = `
+      <div class="viewer-top">
+        <span class="viewer-who"><b>@${esc(m.handle)}</b><small>${shortDay(p.date)} · ${esc(p.parts.join('·') || '오운완')}</small></span>
+        <button class="icon-btn" data-action="viewer-close" aria-label="닫기">${ICON.close}</button>
+      </div>
+      <div class="viewer-stage"><img src="${esc(API_BASE + p.image)}" alt="@${esc(m.handle)}의 오운완"></div>
+      <div class="viewer-actions">${m.isMe
+        ? `<span class="fire mine">🔥 <span>${p.fires}</span></span><small>크루원들이 보낸 응원</small>`
+        : `<button class="fire${p.fired ? ' on' : ''}" data-action="crew-fire" data-user="${esc(p.userId)}" data-date="${p.date}" aria-pressed="${p.fired}">🔥 <span>${p.fires}</span></button><small>${p.fired ? '응원했어요' : '눌러서 응원하기'}</small>`}</div>`;
+  }
+  function closeViewer() {
+    if (viewerEl.hidden) return;
+    crew.viewer = null;
+    viewerEl.classList.remove('open');
+    setTimeout(() => { if (!crew.viewer) { viewerEl.hidden = true; viewerEl.innerHTML = ''; } }, 220);
+  }
+
+  function crewFormsHtml() {
+    return `
+      <div class="section-head"><h2>크루 만들기</h2><span class="kicker">New</span></div>
+      <form class="group crew-form" data-form="crew-create" novalidate>
+        <div class="field"><input id="crew-name" type="text" maxlength="12" placeholder="크루 이름 (예: 아침반)" enterkeyhint="done" autocomplete="off" aria-label="크루 이름"><button class="btn primary" type="submit">만들기</button></div>
+      </form>
+      <div class="section-head"><h2>초대 코드로 들어가기</h2><span class="kicker">Join</span></div>
+      <form class="group crew-form" data-form="crew-join" novalidate>
+        <div class="field"><input id="crew-code" type="text" maxlength="6" placeholder="6자리 코드" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" autocomplete="off" aria-label="초대 코드"><button class="btn" type="submit">들어가기</button></div>
+      </form>`;
+  }
+
+  function renderCrew() {
+    const el = views.crew;
+    const head = (title, kicker = 'Crew', nav = '') => `<header class="head"><div><p class="kicker">${kicker}</p><h1>${title}</h1></div>${nav}</header>`;
+    const intro = `<div class="crew-intro">친구 2~8명이 모여서 <b>이번 주 누가 오운완 인증을 더 많이 했는지</b> 겨뤄요. 인증은 <b>그날 찍은 오운완 사진</b>으로만 되고, 사진은 크루원끼리만 봐요.</div>`;
+
+    if (!loggedIn()) {
+      el.innerHTML = `${head('크루')}${intro}
+        <div class="group">${account.auth ? authFormHtml() : `
+          <div class="row"><span class="row-label">크루는 로그인하고 쓸 수 있어요<small>로그인하면 기록과 사진도 서버에 자동 저장돼요</small></span></div>
+          <div class="auth-buttons">
+            <button class="btn" data-action="auth-open" data-mode="login">로그인</button>
+            <button class="btn primary" data-action="auth-open" data-mode="signup">아이디 만들기</button>
+          </div>`}</div>
+        ${crew.pendingCode ? `<p class="note">로그인하면 초대 코드 <b class="code">${esc(crew.pendingCode)}</b> 크루로 들어가요.</p>` : ''}`;
+      return;
+    }
+    if (crew.list === null) {
+      el.innerHTML = head('크루') + (crew.error
+        ? `<p class="crew-empty">${esc(crew.error)}<br><button class="btn" data-action="crew-retry">다시 시도</button></p>`
+        : '<p class="crew-empty">불러오는 중…</p>');
+      return;
+    }
+    if (!crew.list.length || crew.manage) {
+      el.innerHTML = `${head(crew.list.length ? '크루 추가' : '크루')}${crew.list.length ? '' : intro}${crewFormsHtml()}
+        ${crew.list.length ? '<button class="btn more-btn" data-action="crew-add-cancel">돌아가기</button>' : ''}`;
+      return;
+    }
+
+    const listed = crew.list.find(c => c.id === crew.current) || crew.list[0];
+    const chips = crew.list.length > 1 ? `<div class="crew-chips">${crew.list.map(c =>
+      `<button class="pill" data-action="crew-pick" data-id="${esc(c.id)}" aria-pressed="${c.id === crew.current}">${esc(c.name)}</button>`).join('')}</div>` : '';
+    const b = crew.board && crew.board.crew.id === crew.current ? crew.board : null;
+    const invite = '<div class="nav"><button class="pill" data-action="crew-invite">초대</button></div>';
+    if (!b) {
+      el.innerHTML = head(esc(listed.name), 'Crew', invite) + chips + (crew.error
+        ? `<p class="crew-empty">${esc(crew.error)}<br><button class="btn" data-action="crew-retry">다시 시도</button></p>`
+        : '<p class="crew-empty">불러오는 중…</p>');
+      return;
+    }
+
+    const w = weekRange();
+    const days = Array.from({ length: 7 }, (_, i) => keyOf(addDays(parseKey(w.from), i)));
+    const tk = keyOf(today());
+    const byUser = {};
+    for (const pr of b.proofs) (byUser[pr.userId] = byUser[pr.userId] || {})[pr.date] = pr;
+    const rows = b.members.map(m => ({ ...m, count: Object.keys(byUser[m.id] || {}).length, now: (byUser[m.id] || {})[tk] || null }))
+      .sort((x, y) => y.count - x.count || (y.isMe - x.isMe));
+    let rank = 0;
+    rows.forEach((r, i) => { if (i === 0 || r.count !== rows[i - 1].count) rank = i + 1; r.rank = rank; });
+    const best = rows.length ? rows[0].count : 0;
+    const board = rows.map(r => `
+      <div class="crew-row${r.isMe ? ' me' : ''}${best && r.count === best ? ' lead' : ''}">
+        <span class="crew-rank d">${r.rank}</span>
+        <span class="crew-name">@${esc(r.handle)}${r.isMe ? '<small>나</small>' : ''}</span>
+        <span class="crew-dots" aria-hidden="true">${days.map(k => `<i class="${byUser[r.id] && byUser[r.id][k] ? 'on' : k === tk ? 'today' : k > tk ? 'future' : ''}"></i>`).join('')}</span>
+        <span class="crew-count"><b class="d">${r.count}</b>일</span>
+      </div>`).join('');
+    const proven = rows.filter(r => r.now);
+    const strip = proven.length ? `<div class="proof-strip">${proven.map(r => `
+      <button class="proof" data-action="crew-view" data-user="${esc(r.id)}" data-date="${tk}" aria-label="@${esc(r.handle)} 오늘 오운완 보기">
+        <img src="${esc(API_BASE + r.now.image)}" alt="" loading="lazy" decoding="async">
+        <span class="proof-who">@${esc(r.handle)}</span>
+        <span class="proof-fire${r.now.fired ? ' on' : ''}">🔥 ${r.now.fires}</span>
+      </button>`).join('')}</div>` : '<p class="note crew-none">아직 오늘 인증한 사람이 없어요.</p>';
+    const me = rows.find(r => r.isMe);
+    const cta = me && me.now ? '' : `<button class="photo-cta" data-action="crew-shoot">${ICON.camera}<span>${attended(tk) ? '오운완 찍고 인증하기' : '운동 체크하고 오운완으로 인증하기'}</span></button>`;
+    const last = b.lastWeek && b.lastWeek.winners.length
+      ? `<p class="crew-last">🏆 지난주 1등 <b>${b.lastWeek.winners.map(h => `@${esc(h)}`).join(', ')}</b> · ${b.lastWeek.best}일</p>` : '';
+    const alone = b.members.length < 2 ? '<div class="crew-intro">아직 혼자예요. 위의 <b>초대</b>를 눌러 친구에게 링크를 보내 보세요.</div>' : '';
+
+    el.innerHTML = `
+      ${head(esc(b.crew.name), `Crew · ${b.crew.members}명`, invite)}
+      ${chips}
+      ${alone}
+      <div class="section-head"><h2>이번 주 순위</h2><span class="kicker">${shortDay(w.from)} – ${shortDay(w.to)}</span></div>
+      <div class="crew-board">${board}</div>
+      ${last}
+      <div class="section-head"><h2>오늘 인증 <span class="count">${proven.length}</span></h2><span class="kicker">Today</span></div>
+      ${strip}
+      ${cta}
+      <p class="note">오늘 찍은 오운완 사진을 저장하면 자동으로 인증돼요. 하루 한 번만 세요.</p>
+      <div class="group crew-manage">
+        <div class="row"><span class="row-label">초대 코드<small>친구가 크루 탭에서 입력하거나, 초대 링크로 들어와요</small></span><b class="code d">${esc(b.crew.code)}</b></div>
+        <div class="row"><span class="row-label">다른 크루 만들기·들어가기<small>크루는 5개까지</small></span><button class="btn" data-action="crew-add">추가</button></div>
+        <div class="row"><span class="row-label">이 크루에서 나가기</span><button class="text-btn danger" data-action="crew-leave">나가기</button></div>
+      </div>`;
+  }
+
   // ---------- rendering ----------
   const views = {
     today: $('#view-today'),
     calendar: $('#view-calendar'),
     stats: $('#view-stats'),
+    crew: $('#view-crew'),
     settings: $('#view-settings'),
   };
 
@@ -1685,6 +2578,7 @@
 
       <div class="section-head"><h2>오늘 한 운동</h2><span class="hint">꾹 눌러서 수정</span></div>
       <div class="tiles">${tiles}<button class="tile add-tile" data-action="part-new" aria-label="부위 추가"><span class="add-plus" aria-hidden="true">${ICON.plus}</span><span class="tile-sub">부위 추가</span></button></div>
+      ${logBlock(tk, 'today')}
       ${photoThumbs.has(tk)
         ? `<button class="photo-cta has-photo" data-action="open-day" data-key="${tk}"><img src="${photoThumbs.get(tk)}" alt=""><span>오늘 오운완 보기</span></button>`
         : `<button class="photo-cta${done.size ? '' : ' idle'}" data-action="photo">
@@ -1864,7 +2758,9 @@
       <section class="block">
         <div class="section-head"><h2>부위별 횟수</h2><span class="kicker">By part</span></div>
         ${rows}
-      </section>`;
+      </section>
+
+      ${liftsSection()}`;
   }
 
   function renderSettings() {
@@ -1995,11 +2891,12 @@
       </div>
       ${photoBlock}
       <div class="tiles compact">${state.parts.map(p => tile(p, done.has(p.id), '', 'toggle-day')).join('')}</div>
+      ${logBlock(k, 'day')}
       ${!hasPhoto && done.size ? `<button class="photo-cta" data-action="day-photo-add">${ICON.camera}<span>이날 오운완 사진 추가</span></button>` : ''}
       <p class="note">${done.size ? `${done.size}개 부위 체크됨` : '이날은 기록이 없어요'}</p>`;
   }
 
-  const RENDER = { today: renderToday, calendar: renderCalendar, stats: renderStats, settings: renderSettings };
+  const RENDER = { today: renderToday, calendar: renderCalendar, stats: renderStats, crew: renderCrew, settings: renderSettings };
 
   function renderCurrent() {
     RENDER[ui.tab]();
@@ -2018,6 +2915,7 @@
     });
     if (tab === 'calendar' && !ui.sheetDate) ui.calMonth = firstOfMonth(today());
     renderCurrent();
+    if (tab === 'crew' && loggedIn()) loadCrews({ quiet: crew.list !== null });
     scroller.scrollTop = 0;
   }
 
@@ -2037,6 +2935,7 @@
 
   function openSheet(key) {
     ui.partSheet = null;
+    ui.exSheet = null;
     ui.sheetDate = key;
     renderSheet();
     showSheet();
@@ -2046,6 +2945,7 @@
   function openPartSheet(id) {
     const p = id ? partById(id) : null;
     ui.sheetDate = null;
+    ui.exSheet = null;
     ui.partSheet = { id: p ? p.id : null, color: p ? p.color : nextColor() };
     const colors = [...new Set([...DEFAULT_PARTS.map(d => d.color), ...CUSTOM_COLORS, ...(p ? [p.color] : [])].map(c => c.toUpperCase()))];
     sheet.innerHTML = `
@@ -2068,9 +2968,10 @@
   }
 
   function closeSheet() {
-    if (!ui.sheetDate && !ui.partSheet) return;
+    if (!ui.sheetDate && !ui.partSheet && !ui.exSheet) return;
     ui.sheetDate = null;
     ui.partSheet = null;
+    ui.exSheet = null;
     clearSheetPhoto();
     sheet.classList.remove('open');
     backdrop.classList.remove('open');
@@ -2299,6 +3200,49 @@
         document.querySelectorAll('.swatch').forEach(s => s.setAttribute('aria-pressed', String(s === el)));
         break;
       case 'part-new': openPartSheet(null); break;
+      case 'ex-add': openExercisePicker(el.dataset.date, el.dataset.from); break;
+      case 'ex-edit': openExerciseLog(el.dataset.date, el.dataset.ex, { today: null, day: 'day', history: 'history' }[el.dataset.from] || null); break;
+      case 'ex-history': openExerciseHistory(el.dataset.ex); break;
+      case 'ex-pick': openExerciseLog(ui.exSheet.date, el.dataset.ex, 'pick'); break;
+      case 'ex-filter':
+        ui.exSheet.filter = el.dataset.filter;
+        $('#ex-chips').innerHTML = exChips();
+        renderExList();
+        break;
+      case 'ex-custom': addCustomExercise(); break;
+      case 'ex-back': exerciseBack(); break;
+      case 'ex-save': saveExercise(); break;
+      case 'ex-delete': deleteExercise(); break;
+      case 'set-add': {
+        const sets = ui.exSheet.sets;
+        sets.push({ ...(sets[sets.length - 1] || {}) });
+        renderExSheet();
+        break;
+      }
+      case 'set-del':
+        ui.exSheet.sets.splice(Number(el.dataset.i), 1);
+        if (!ui.exSheet.sets.length) ui.exSheet.sets.push({});
+        renderExSheet();
+        break;
+      case 'crew-retry': loadCrews(); break;
+      case 'crew-pick': pickCrew(id); break;
+      case 'crew-invite': shareInvite(); break;
+      case 'crew-leave': leaveCrew(); break;
+      case 'crew-add':
+        crew.manage = true;
+        renderCrew();
+        break;
+      case 'crew-add-cancel':
+        crew.manage = false;
+        renderCrew();
+        break;
+      case 'crew-shoot':
+        if (attended(keyOf(today()))) startPhoto();
+        else { setTab('today'); toast('오늘 한 운동을 먼저 체크해 주세요'); }
+        break;
+      case 'crew-view': openViewer(el.dataset.user, el.dataset.date); break;
+      case 'crew-fire': cheerProof(el.dataset.user, el.dataset.date); break;
+      case 'viewer-close': closeViewer(); break;
       case 'part-delete': deletePart(id); break;
       case 'export':
         if (ui.tab !== 'settings') setTab('settings');
@@ -2354,6 +3298,12 @@
     if (e.target.matches('[data-form="part-save"]')) {
       e.preventDefault();
       savePart();
+    } else if (e.target.matches('[data-form="crew-create"]')) {
+      e.preventDefault();
+      createCrew();
+    } else if (e.target.matches('[data-form="crew-join"]')) {
+      e.preventDefault();
+      joinCrew(fieldValue('#crew-code'));
     } else if (e.target.matches('[data-form="soc-auth"]')) {
       e.preventDefault();
       submitAuth();
@@ -2379,7 +3329,11 @@
     next.focus();
   });
   document.addEventListener('input', e => {
-    if (e.target.id === 'soc-handle') account.form.handle = e.target.value = e.target.value.toLowerCase().replace(/\s/g, '');
+    if (e.target.id === 'ex-search' && ui.exSheet) { ui.exSheet.q = e.target.value; renderExList(); }
+    else if (e.target.dataset.set !== undefined && ui.exSheet && ui.exSheet.sets) {
+      const st = ui.exSheet.sets[Number(e.target.dataset.set)];
+      if (st) st[e.target.dataset.f] = e.target.value;
+    } else if (e.target.id === 'soc-handle') account.form.handle = e.target.value = e.target.value.toLowerCase().replace(/\s/g, '');
     else if (e.target.id === 'soc-password') account.form.password = e.target.value;
   });
 
@@ -2391,7 +3345,8 @@
 
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
-    if (!photoEditor.hidden) closePhoto();
+    if (!viewerEl.hidden) closeViewer();
+    else if (!photoEditor.hidden) closePhoto();
     else closeSheet();
   });
 
@@ -2468,6 +3423,7 @@
     if (document.visibilityState !== 'visible') return;
     renderCurrent();
     checkForUpdate();
+    if (ui.tab === 'crew' && loggedIn()) loadBoard();
   });
 
   // If the app is left open on screen, roll over to the new day right after midnight.
@@ -2480,9 +3436,17 @@
 
 
   // ---------- boot ----------
-  // Old profile links (?u=handle) from the feed days just open the app.
+  // Crew invite links carry ?crew=CODE. (Old ?u=handle profile links just open the app.)
+  const inviteCode = (new URLSearchParams(location.search).get('crew') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (location.search) history.replaceState(null, '', location.pathname);
   renderCurrent();
+  if (inviteCode) {
+    crew.pendingCode = inviteCode;
+    setTab('crew');
+    if (loggedIn()) joinCrew(inviteCode);
+  } else if (loggedIn()) {
+    setTimeout(() => loadCrews({ quiet: true }), 2000); // notices last week's crew win
+  }
   loadPhotoThumbs();
   scheduleMidnightRefresh();
   setTimeout(checkForUpdate, 800);

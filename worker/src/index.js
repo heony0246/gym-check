@@ -1,10 +1,11 @@
-// 짐첵 social API: accounts with a unique @handle and a password, Instagram-style
-// follow/following, daily check-ins, 오운완 photo posts and 🔥 reactions.
-// Data in D1, photos in R2. Each account also has a private cloud backup in R2
-// (its records as one JSON, plus one photo per date) so a new phone gets everything back.
+// 짐첵 API: accounts with a unique @handle and a password, a private cloud backup per
+// account (records as one JSON plus one photo per date, in R2) so a new phone gets
+// everything back, and crews: invite-only groups that race each week on days proven
+// with that day's 오운완 photo, with 🔥 cheers. (The older feed routes are still here
+// but the app no longer uses them.) Data in D1, photos in R2.
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
-const MAX_BACKUP_BYTES = 1024 * 1024;
+const MAX_BACKUP_BYTES = 4 * 1024 * 1024; // records + the sets × kg log
 const MAX_BACKUP_PHOTO_BYTES = 6 * 1024 * 1024;
 const PAGE_SIZE = 20;
 const GRID_PAGE_SIZE = 30;
@@ -19,6 +20,9 @@ const PW_MAX = 64;
 // Failed logins per handle before a 15-minute lockout.
 const LOGIN_MAX_FAILS = 10;
 const LOGIN_LOCK_SECONDS = 900;
+const CREW_MAX_MEMBERS = 8;
+const CREWS_PER_USER = 5;
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -88,6 +92,16 @@ async function route(request, env) {
     if (m === 'PUT') return putBackupPhoto(request, env, me, p[1]);
     if (m === 'DELETE') return deleteBackupPhoto(env, me, p[1]);
   }
+  if (m === 'GET' && path === '/api/crews') return myCrews(env, me);
+  if (m === 'POST' && path === '/api/crews') return createCrew(request, env, me);
+  if (m === 'POST' && path === '/api/crews/join') return joinCrew(request, env, me);
+  if (m === 'GET' && (p = path.match(/^\/api\/crews\/([\w-]+)$/))) return crewBoard(env, me, p[1], url);
+  if (m === 'DELETE' && (p = path.match(/^\/api\/crews\/([\w-]+)\/me$/))) return leaveCrew(env, me, p[1]);
+  if ((p = path.match(/^\/api\/proofs\/(\d{4}-\d{2}-\d{2})$/))) {
+    if (m === 'PUT') return putProof(request, env, me, p[1]);
+    if (m === 'DELETE') return deleteProof(env, me, p[1]);
+  }
+  if (m === 'POST' && (p = path.match(/^\/api\/proofs\/([\w-]+)\/(\d{4}-\d{2}-\d{2})\/cheer$/))) return toggleCheer(env, me, p[1], p[2]);
   if (m === 'GET' && path === '/api/search') return search(env, me, url);
   if (m === 'GET' && path === '/api/feed') return feed(env, me, url);
   if (m === 'GET' && path === '/api/today') return todayList(env, me, url);
@@ -466,6 +480,198 @@ async function toggleFire(env, me, postId) {
   else await env.DB.prepare('INSERT INTO fires (post_id, user_id) VALUES (?, ?)').bind(postId, me.id).run();
   const { count } = await env.DB.prepare('SELECT COUNT(*) AS count FROM fires WHERE post_id = ?').bind(postId).first();
   return json({ fires: count, fired: !had });
+}
+
+// ---------- crews ----------
+
+function inviteCode() {
+  return [...crypto.getRandomValues(new Uint8Array(6))].map(b => CODE_CHARS[b % CODE_CHARS.length]).join('');
+}
+
+const winsOf = async (env, userId) =>
+  (await env.DB.prepare('SELECT COUNT(*) AS n FROM crew_wins WHERE user_id = ?').bind(userId).first()).n;
+
+async function requireMember(env, crewId, userId) {
+  const row = await env.DB.prepare(`
+    SELECT c.id, c.name, c.invite_code, c.owner_id FROM crews c
+    JOIN crew_members m ON m.crew_id = c.id AND m.user_id = ? WHERE c.id = ?`).bind(userId, crewId).first();
+  if (!row) throw new HttpError(404, '크루를 찾을 수 없어요');
+  return row;
+}
+
+const crewOut = r => ({ id: r.id, name: r.name, code: r.invite_code, ownerId: r.owner_id, members: r.members });
+
+async function myCrews(env, me) {
+  const { results } = await env.DB.prepare(`
+    SELECT c.id, c.name, c.invite_code, c.owner_id,
+      (SELECT COUNT(*) FROM crew_members x WHERE x.crew_id = c.id) AS members
+    FROM crews c JOIN crew_members m ON m.crew_id = c.id
+    WHERE m.user_id = ? ORDER BY m.joined_at`).bind(me.id).all();
+  return json({ crews: results.map(crewOut), wins: await winsOf(env, me.id) });
+}
+
+async function countMyCrews(env, userId) {
+  return (await env.DB.prepare('SELECT COUNT(*) AS n FROM crew_members WHERE user_id = ?').bind(userId).first()).n;
+}
+
+async function createCrew(request, env, me) {
+  const body = await readJson(request);
+  const name = cleanText(body.name, 12, '크루 이름');
+  if (await countMyCrews(env, me.id) >= CREWS_PER_USER) throw new HttpError(400, `크루는 ${CREWS_PER_USER}개까지 들어갈 수 있어요`);
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  for (let attempt = 0; ; attempt++) {
+    const code = inviteCode();
+    try {
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO crews (id, name, invite_code, owner_id, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, name, code, me.id, now),
+        env.DB.prepare('INSERT INTO crew_members (crew_id, user_id, joined_at) VALUES (?, ?, ?)').bind(id, me.id, now),
+      ]);
+      return json({ crew: { id, name, code, ownerId: me.id, members: 1 } }, 201);
+    } catch (e) {
+      if (attempt >= 3 || !/UNIQUE/i.test(String(e && e.message))) throw e;
+    }
+  }
+}
+
+async function joinCrew(request, env, me) {
+  const body = await readJson(request);
+  const code = String(body.code || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 6) throw new HttpError(400, '초대 코드는 6자리예요');
+  const c = await env.DB.prepare(`
+    SELECT c.id, c.name, c.invite_code, c.owner_id,
+      (SELECT COUNT(*) FROM crew_members x WHERE x.crew_id = c.id) AS members,
+      EXISTS (SELECT 1 FROM crew_members x WHERE x.crew_id = c.id AND x.user_id = ?) AS mine
+    FROM crews c WHERE c.invite_code = ?`).bind(me.id, code).first();
+  if (!c) throw new HttpError(404, '없는 초대 코드예요');
+  if (c.mine) return json({ crew: crewOut(c), already: true });
+  if (c.members >= CREW_MAX_MEMBERS) throw new HttpError(400, `크루는 ${CREW_MAX_MEMBERS}명까지예요`);
+  if (await countMyCrews(env, me.id) >= CREWS_PER_USER) throw new HttpError(400, `크루는 ${CREWS_PER_USER}개까지 들어갈 수 있어요`);
+  await env.DB.prepare('INSERT OR IGNORE INTO crew_members (crew_id, user_id, joined_at) VALUES (?, ?, ?)').bind(c.id, me.id, Date.now()).run();
+  return json({ crew: crewOut({ ...c, members: c.members + 1 }) });
+}
+
+async function leaveCrew(env, me, crewId) {
+  const c = await requireMember(env, crewId, me.id);
+  await env.DB.prepare('DELETE FROM crew_members WHERE crew_id = ? AND user_id = ?').bind(crewId, me.id).run();
+  const next = await env.DB.prepare('SELECT user_id FROM crew_members WHERE crew_id = ? ORDER BY joined_at LIMIT 1').bind(crewId).first();
+  if (!next) {
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM crews WHERE id = ?').bind(crewId),
+      env.DB.prepare('DELETE FROM crew_wins WHERE crew_id = ?').bind(crewId),
+    ]);
+  } else if (c.owner_id === me.id) {
+    await env.DB.prepare('UPDATE crews SET owner_id = ? WHERE id = ?').bind(next.user_id, crewId).run();
+  }
+  return json({ ok: true });
+}
+
+// Dates come from the phone (its own time zone): from–to is this week (Mon–Sun),
+// lastFrom–lastTo the week before, whose winners get recorded once it's over.
+function weekParam(url, name) {
+  const v = url.searchParams.get(name) || '';
+  if (!DATE_RE.test(v)) throw new HttpError(400, '날짜 형식이 잘못됐어요');
+  return v;
+}
+
+async function crewBoard(env, me, crewId, url) {
+  const c = await requireMember(env, crewId, me.id);
+  const from = weekParam(url, 'from');
+  const to = weekParam(url, 'to');
+  const lastFrom = weekParam(url, 'lastFrom');
+  const lastTo = weekParam(url, 'lastTo');
+  const { results: members } = await env.DB.prepare(`
+    SELECT u.id, u.handle, u.nickname FROM crew_members m JOIN users u ON u.id = m.user_id
+    WHERE m.crew_id = ? ORDER BY m.joined_at`).bind(crewId).all();
+  const { results: rows } = await env.DB.prepare(`
+    SELECT p.user_id, p.date, p.image_key, p.parts,
+      (SELECT COUNT(*) FROM cheers h WHERE h.user_id = p.user_id AND h.date = p.date) AS fires,
+      EXISTS (SELECT 1 FROM cheers h WHERE h.user_id = p.user_id AND h.date = p.date AND h.from_id = ?) AS fired
+    FROM proofs p JOIN crew_members m ON m.user_id = p.user_id AND m.crew_id = ?
+    WHERE p.date BETWEEN ? AND ?`).bind(me.id, crewId, lastFrom, to).all();
+
+  // Last week's winners: most proven days (at least 1), ties all win, 2+ members.
+  const last = {};
+  for (const r of rows) if (r.date >= lastFrom && r.date <= lastTo) last[r.user_id] = (last[r.user_id] || 0) + 1;
+  const best = Math.max(0, ...Object.values(last));
+  const winners = best > 0 && members.length >= 2 ? members.filter(u => last[u.id] === best) : [];
+  if (winners.length) {
+    await env.DB.batch(winners.map(u =>
+      env.DB.prepare('INSERT OR IGNORE INTO crew_wins (crew_id, week, user_id) VALUES (?, ?, ?)').bind(crewId, lastFrom, u.id)));
+  }
+
+  const proofs = rows.filter(r => r.date >= from && r.date <= to).map(r => ({
+    userId: r.user_id, date: r.date, image: `/img/${r.image_key}`, parts: JSON.parse(r.parts),
+    fires: r.fires, fired: Boolean(r.fired),
+  }));
+  return json({
+    crew: crewOut({ ...c, members: members.length }),
+    members: members.map(u => ({ id: u.id, handle: u.handle, isMe: u.id === me.id })),
+    proofs,
+    lastWeek: { best, winners: winners.map(u => u.handle) },
+    wins: await winsOf(env, me.id),
+  });
+}
+
+// A proof is for today (by the phone's clock), so only a day either side of the server's.
+function checkProofDate(date) {
+  const t = Date.parse(`${date}T12:00:00Z`);
+  if (Number.isNaN(t) || Math.abs(Date.now() - t) > 36 * 3600 * 1000) throw new HttpError(400, '오늘 사진만 인증할 수 있어요');
+}
+
+async function putProof(request, env, me, date) {
+  checkProofDate(date);
+  const length = Number(request.headers.get('Content-Length') || 0);
+  if (length > MAX_IMAGE_BYTES + 64 * 1024) throw new HttpError(413, '사진이 너무 커요');
+  let form;
+  try {
+    form = await request.formData();
+  } catch (e) {
+    throw new HttpError(400, '요청 형식이 잘못됐어요');
+  }
+  const image = form.get('image');
+  let parts;
+  try {
+    parts = cleanParts(JSON.parse(String(form.get('parts') || '[]')));
+  } catch (e) {
+    throw new HttpError(400, '부위 형식이 잘못됐어요');
+  }
+  if (!image || typeof image === 'string' || image.type !== 'image/jpeg') throw new HttpError(400, 'JPEG 사진만 올릴 수 있어요');
+  if (image.size > MAX_IMAGE_BYTES) throw new HttpError(413, '사진이 너무 커요');
+  const old = await env.DB.prepare('SELECT image_key FROM proofs WHERE user_id = ? AND date = ?').bind(me.id, date).first();
+  const key = crypto.randomUUID();
+  await env.IMAGES.put(key, image, { httpMetadata: { contentType: 'image/jpeg' } });
+  await env.DB.prepare(`
+    INSERT INTO proofs (user_id, date, image_key, parts, created_at) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, date) DO UPDATE SET image_key = excluded.image_key, parts = excluded.parts, created_at = excluded.created_at`)
+    .bind(me.id, date, key, JSON.stringify(parts), Date.now()).run();
+  if (old) await env.IMAGES.delete(old.image_key);
+  return json({ proof: { userId: me.id, date, image: `/img/${key}`, parts, fires: 0, fired: false } });
+}
+
+async function deleteProof(env, me, date) {
+  const old = await env.DB.prepare('SELECT image_key FROM proofs WHERE user_id = ? AND date = ?').bind(me.id, date).first();
+  if (!old) return json({ ok: true });
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM proofs WHERE user_id = ? AND date = ?').bind(me.id, date),
+    env.DB.prepare('DELETE FROM cheers WHERE user_id = ? AND date = ?').bind(me.id, date),
+  ]);
+  await env.IMAGES.delete(old.image_key);
+  return json({ ok: true });
+}
+
+async function toggleCheer(env, me, userId, date) {
+  if (userId === me.id) throw new HttpError(400, '내 인증에는 응원할 수 없어요');
+  const shared = await env.DB.prepare(`
+    SELECT 1 FROM crew_members a JOIN crew_members b ON a.crew_id = b.crew_id
+    WHERE a.user_id = ? AND b.user_id = ? LIMIT 1`).bind(me.id, userId).first();
+  const proof = shared && await env.DB.prepare('SELECT 1 FROM proofs WHERE user_id = ? AND date = ?').bind(userId, date).first();
+  if (!proof) throw new HttpError(404, '인증을 찾을 수 없어요');
+  const del = await env.DB.prepare('DELETE FROM cheers WHERE user_id = ? AND date = ? AND from_id = ?').bind(userId, date, me.id).run();
+  const fired = del.meta.changes === 0;
+  if (fired) await env.DB.prepare('INSERT INTO cheers (user_id, date, from_id) VALUES (?, ?, ?)').bind(userId, date, me.id).run();
+  const { n } = await env.DB.prepare('SELECT COUNT(*) AS n FROM cheers WHERE user_id = ? AND date = ?').bind(userId, date).first();
+  return json({ fired, fires: n });
 }
 
 // ---------- cloud backup (private to the account) ----------
