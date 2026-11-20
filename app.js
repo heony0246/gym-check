@@ -16,6 +16,8 @@
   // How each part reads in "___ DAY" on the 오운완 photo.
   const DAY_EN = { chest: 'CHEST', back: 'BACK', legs: 'LEG', arms: 'ARM', shoulders: 'SHOULDER', abs: 'ABS', cardio: 'CARDIO' };
   const VOLT = '#D4FF3F';
+  // Characters for the 오운완 photo (stickers/sN.png, cut out from pic/).
+  const STICKERS = ['s1', 's2', 's3', 's4', 's5', 's6'];
   const BUILTIN_IDS = new Set(DEFAULT_PARTS.map(p => p.id));
   const CUSTOM_COLORS = ['#F472B6', '#818CF8', '#A3E635', '#2DD4BF', '#FB7185', '#94A3B8', '#E879F9', '#C08457'];
   const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -23,7 +25,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.3.0';
+  const APP_VERSION = '1.4.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -55,7 +57,7 @@
 
   // ---------- state ----------
   function defaultState() {
-    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null };
+    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoSticker: 's1' };
   }
 
   // Validates anything that comes from storage or a backup file.
@@ -93,6 +95,7 @@
     }
 
     if (Number.isInteger(src.weeklyGoal) && src.weeklyGoal >= 1 && src.weeklyGoal <= 7) out.weeklyGoal = src.weeklyGoal;
+    if (src.photoSticker === null || STICKERS.includes(src.photoSticker)) out.photoSticker = src.photoSticker;
     if (typeof src.lastBackup === 'string' && !Number.isNaN(Date.parse(src.lastBackup))) out.lastBackup = src.lastBackup;
     return out;
   }
@@ -345,7 +348,29 @@
     return { size: minSize * 0.6, lines };
   }
 
-  async function composePhoto(file) {
+  const stickerCache = new Map();
+  function loadSticker(id) {
+    if (!STICKERS.includes(id)) return Promise.resolve(null);
+    if (!stickerCache.has(id)) {
+      const img = new Image();
+      img.src = `stickers/${id}.png`;
+      stickerCache.set(id, img.decode().then(() => img).catch(() => { stickerCache.delete(id); return null; }));
+    }
+    return stickerCache.get(id);
+  }
+
+  // Shrinks one line of text until it fits maxW (down to 60% of the start size).
+  function fitFont(ctx, text, maxW, size, weight, family) {
+    let s = size;
+    ctx.font = `${weight} ${s}px ${family}`;
+    while (ctx.measureText(text).width > maxW && s > size * 0.6) {
+      s *= 0.94;
+      ctx.font = `${weight} ${s}px ${family}`;
+    }
+    return s;
+  }
+
+  async function composePhoto(src, stickerId) {
     const t = today();
     const tk = keyOf(t);
     const done = new Set(dayParts(tk));
@@ -354,17 +379,21 @@
     const partsLine = `${parts.map(p => p.name).join(' · ')} 완료`;
     const statsLine = `연속 ${streak(t)}일 · 이번 주 ${weekCount(t)}/${state.weeklyGoal}회 · 올해 ${yearStats(t.getFullYear()).days}번째 출석`;
     const dateLine = `${t.getFullYear()}.${pad(t.getMonth() + 1)}.${pad(t.getDate())} ${WEEKDAYS_EN[t.getDay()]}`;
+    const KR = '"Pretendard Variable", sans-serif';
 
-    const [img] = await Promise.all([loadImage(file), ensurePhotoFonts(headline + partsLine + statsLine + dateLine + '오운완')]);
-    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
-    const W = Math.round(img.width * scale);
-    const H = Math.round(img.height * scale);
+    const [sticker] = await Promise.all([
+      stickerId ? loadSticker(stickerId) : null,
+      ensurePhotoFonts(headline + partsLine + statsLine + dateLine + '오운완'),
+    ]);
+
+    const scale = Math.min(1, 1600 / Math.max(src.width, src.height));
+    const W = Math.round(src.width * scale);
+    const H = Math.round(src.height * scale);
     const canvas = document.createElement('canvas');
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, W, H);
-    if (img.close) img.close();
+    ctx.drawImage(src, 0, 0, W, H);
 
     const u = Math.min(W, H) / 100;
     const m = 6 * u; // margin
@@ -393,7 +422,7 @@
 
     // Top right: 오운완 badge.
     ctx.shadowBlur = 0;
-    ctx.font = `800 ${4.3 * u}px "Pretendard Variable", sans-serif`;
+    ctx.font = `800 ${4.3 * u}px ${KR}`;
     const badgeW = ctx.measureText('오운완').width + 5.2 * u;
     roundRect(ctx, W - m - badgeW, m, badgeW, badgeH, badgeH / 2);
     ctx.fillStyle = VOLT;
@@ -403,22 +432,43 @@
     ctx.fillText('오운완', W - m - badgeW / 2, rowY + 0.2 * u);
     ctx.textAlign = 'left';
 
-    // Bottom block, stacked upward from the bottom margin.
+    // Bottom right: the chosen character, standing on the bottom edge.
+    let textMaxW = W - m * 2;
+    if (sticker) {
+      const portrait = H >= W;
+      const maxH = H * (portrait ? 0.44 : 0.66);
+      const maxSW = W * (portrait ? 0.36 : 0.3);
+      const k = Math.min(maxH / sticker.naturalHeight, maxSW / sticker.naturalWidth);
+      const sw = sticker.naturalWidth * k;
+      const sh = sticker.naturalHeight * k;
+      const sx = W - sw - m * 0.5;
+      const sy = H - sh - m * 0.3;
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,.45)';
+      ctx.shadowBlur = 3 * u;
+      ctx.shadowOffsetY = 0.8 * u;
+      ctx.drawImage(sticker, sx, sy, sw, sh);
+      ctx.restore();
+      textMaxW = sx - m - 2 * u;
+    }
+
+    // Bottom left block, stacked upward; each line shrinks to stay clear of the character.
     ctx.textBaseline = 'alphabetic';
+    ctx.shadowColor = 'rgba(0,0,0,.35)';
     ctx.shadowBlur = 2 * u;
     let y = H - m;
-    ctx.font = `600 ${3.4 * u}px "Pretendard Variable", sans-serif`;
     ctx.fillStyle = 'rgba(255,255,255,.8)';
+    const statsSize = fitFont(ctx, statsLine, textMaxW, 3.4 * u, 600, KR);
     ctx.fillText(statsLine, m, y);
-    y -= 3.4 * u + 2.8 * u;
+    y -= statsSize + 2.8 * u;
 
-    ctx.font = `800 ${5.4 * u}px "Pretendard Variable", sans-serif`;
     ctx.fillStyle = '#FFFFFF';
+    const partsSize = fitFont(ctx, partsLine, textMaxW, 5.4 * u, 800, KR);
     ctx.fillText(partsLine, m, y);
-    y -= 5.4 * u + 2.4 * u;
+    y -= partsSize + 2.4 * u;
 
-    const { size, lines } = fitHeadline(ctx, headline, W - m * 2, 17 * u, 9 * u);
-    ctx.font = `italic 900 ${size}px "Barlow Condensed", "Pretendard Variable", sans-serif`;
+    const { size, lines } = fitHeadline(ctx, headline, textMaxW, 17 * u, 9 * u);
+    ctx.font = `italic 900 ${size}px "Barlow Condensed", ${KR}`;
     ctx.fillStyle = VOLT;
     for (let i = lines.length - 1; i >= 0; i--) {
       ctx.fillText(lines[i], m, y);
@@ -434,12 +484,58 @@
   const photoPreview = $('#photo-preview');
   const photoLoading = $('#photo-loading');
   const photoSaveBtn = $('#photo-save');
+  const photoStickers = $('#photo-stickers');
+  let photoSource = null; // the picked photo, kept so a new character can be applied without re-picking
   let photoBlob = null;
   let photoUrl = '';
+  let photoSeq = 0;
 
   function startPhoto() {
     if (!attended(keyOf(today()))) { toast('오늘 한 운동을 먼저 체크해 주세요'); return; }
     $('#photo-input').click();
+  }
+
+  function renderStickerPicker() {
+    const cur = state.photoSticker;
+    photoStickers.innerHTML =
+      `<button class="pe-sticker none" data-action="photo-sticker" data-id="" aria-pressed="${!cur}" aria-label="캐릭터 없이">없음</button>` +
+      STICKERS.map((id, i) =>
+        `<button class="pe-sticker" data-action="photo-sticker" data-id="${id}" aria-pressed="${cur === id}" aria-label="캐릭터 ${i + 1}"><img src="stickers/${id}-thumb.png" alt=""></button>`
+      ).join('');
+  }
+
+  function pickSticker(id) {
+    state.photoSticker = STICKERS.includes(id) ? id : null;
+    save();
+    photoStickers.querySelectorAll('.pe-sticker').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.id || null) === state.photoSticker)));
+    renderPhoto();
+  }
+
+  async function renderPhoto() {
+    if (!photoSource) return;
+    const seq = ++photoSeq;
+    photoSaveBtn.disabled = true;
+    if (photoPreview.hidden) {
+      photoLoading.hidden = false;
+      photoLoading.textContent = '사진 만드는 중…';
+    }
+    try {
+      const blob = await composePhoto(photoSource, state.photoSticker);
+      if (seq !== photoSeq) return; // a newer pick is already rendering
+      photoBlob = blob;
+      if (photoUrl) URL.revokeObjectURL(photoUrl);
+      photoUrl = URL.createObjectURL(blob);
+      photoPreview.src = photoUrl;
+      await photoPreview.decode().catch(() => {});
+      photoPreview.hidden = false;
+      photoLoading.hidden = true;
+      photoSaveBtn.disabled = false;
+    } catch (e) {
+      if (seq !== photoSeq) return;
+      photoPreview.hidden = true;
+      photoLoading.hidden = false;
+      photoLoading.textContent = '사진을 만들지 못했어요. 다른 사진을 골라 주세요';
+    }
   }
 
   async function openPhoto(file) {
@@ -448,24 +544,25 @@
     photoLoading.hidden = false;
     photoLoading.textContent = '사진 만드는 중…';
     photoSaveBtn.disabled = true;
+    renderStickerPicker();
     try {
-      photoBlob = await composePhoto(file);
-      if (photoUrl) URL.revokeObjectURL(photoUrl);
-      photoUrl = URL.createObjectURL(photoBlob);
-      photoPreview.src = photoUrl;
-      await photoPreview.decode().catch(() => {});
-      photoPreview.hidden = false;
-      photoLoading.hidden = true;
-      photoSaveBtn.disabled = false;
+      const img = await loadImage(file);
+      if (photoSource && photoSource.close) photoSource.close();
+      photoSource = img;
     } catch (e) {
       photoLoading.textContent = '이 사진은 열 수 없어요. 다른 사진을 골라 주세요';
+      return;
     }
+    await renderPhoto();
   }
 
   function closePhoto() {
     photoEditor.hidden = true;
+    photoSeq++;
     photoPreview.removeAttribute('src');
     if (photoUrl) URL.revokeObjectURL(photoUrl);
+    if (photoSource && photoSource.close) photoSource.close();
+    photoSource = null;
     photoUrl = '';
     photoBlob = null;
   }
@@ -753,7 +850,7 @@
         <p class="install">지금 아이콘은 예전 방식으로 추가돼서 화면 아래가 비어 보여요. 아이콘을 한 번만 다시 추가하면 꽉 차요.<br>
         <b>1</b> 아래 ‘내보내기’로 기록 백업<br>
         <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(이때 기록도 같이 지워져요)</small><br>
-        <b>3</b> Safari로 앱 주소를 열고 공유 → ‘홈 화면에 추가’<br>
+        <b>3</b> Safari로 앱 주소를 열고 <b>새로고침(↻) 한 번</b> → 공유 → ‘홈 화면에 추가’<br>
         <b>4</b> 새 아이콘에서 설정 → ‘가져오기’로 백업 불러오기</p>
         <div class="row">
           <span class="row-label">1단계 · 기록 백업</span>
@@ -962,6 +1059,7 @@
       case 'photo-retake': $('#photo-input').click(); break;
       case 'photo-save': savePhoto(); break;
       case 'photo-close': closePhoto(); break;
+      case 'photo-sticker': pickSticker(el.dataset.id); break;
       case 'apply-update': applyUpdate(); break;
       case 'show-fit':
         setTab('settings');
