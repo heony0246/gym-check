@@ -13,6 +13,9 @@
     { id: 'cardio', name: '유산소', color: '#38D9F5' },
   ];
   const PART_EN = { chest: 'CHEST', back: 'BACK', legs: 'LEGS', arms: 'ARMS', shoulders: 'SHOULDERS', abs: 'ABS', cardio: 'CARDIO' };
+  // How each part reads in "___ DAY" on the 오운완 photo.
+  const DAY_EN = { chest: 'CHEST', back: 'BACK', legs: 'LEG', arms: 'ARM', shoulders: 'SHOULDER', abs: 'ABS', cardio: 'CARDIO' };
+  const VOLT = '#D4FF3F';
   const BUILTIN_IDS = new Set(DEFAULT_PARTS.map(p => p.id));
   const CUSTOM_COLORS = ['#F472B6', '#818CF8', '#A3E635', '#2DD4BF', '#FB7185', '#94A3B8', '#E879F9', '#C08457'];
   const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -20,7 +23,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '1.1.0';
+  const APP_VERSION = '1.2.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -29,6 +32,7 @@
     check: svg('M5 12.5l4.5 4.5L19 7.5', 3.2),
     prev: svg('M15 5l-7 7 7 7'),
     next: svg('M9 5l7 7-7 7'),
+    camera: svg('M4 8.5A2.5 2.5 0 0 1 6.5 6h1.6l1.4-2h5l1.4 2h1.6A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5zM12 15.6a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2z', 2.1),
   };
 
   const $ = (s, el = document) => el.querySelector(s);
@@ -238,16 +242,7 @@
         if (e && e.name === 'AbortError') return;
       }
     }
-    if (!done) {
-      const url = URL.createObjectURL(file);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-    }
+    if (!done) downloadFile(file);
     state.lastBackup = new Date().toISOString();
     save();
     renderCurrent();
@@ -270,6 +265,224 @@
     ui.statsYear = today().getFullYear();
     renderCurrent();
     toast(`기록 ${days}일을 가져왔어요`);
+  }
+
+  function downloadFile(file) {
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  // ---------- 오운완 photo ----------
+  // "CHEST DAY", "CHEST & BACK DAY", "CHEST · BACK · ARM DAY"; custom parts use their own name.
+  function photoHeadline(parts) {
+    if (!parts.length) return 'WORKOUT DONE';
+    if (parts.length > 4) return 'FULL BODY DAY';
+    const words = parts.map(p => DAY_EN[p.id] || p.name);
+    return `${words.join(parts.length === 2 ? ' & ' : ' · ')} DAY`;
+  }
+
+  async function loadImage(file) {
+    if ('createImageBitmap' in window) {
+      try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { /* fall back */ }
+    }
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return img;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  // Canvas text needs the web fonts loaded first; give up after a moment (offline) and use fallbacks.
+  async function ensurePhotoFonts(text) {
+    if (!document.fonts || !document.fonts.load) return;
+    const loads = [
+      document.fonts.load('italic 900 100px "Barlow Condensed"', text),
+      document.fonts.load('italic 800 100px "Barlow Condensed"', text),
+      document.fonts.load('800 40px "Pretendard Variable"', text),
+      document.fonts.load('600 40px "Pretendard Variable"', text),
+    ];
+    await Promise.race([Promise.all(loads).catch(() => {}), new Promise(r => setTimeout(r, 2500))]);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // Largest size (up to maxSize) at which the headline fits; splits onto two lines if it must.
+  function fitHeadline(ctx, text, maxW, maxSize, minSize) {
+    const font = s => `italic 900 ${s}px "Barlow Condensed", "Pretendard Variable", sans-serif`;
+    const fits = (lines, s) => { ctx.font = font(s); return lines.every(l => ctx.measureText(l).width <= maxW); };
+    const step = maxSize * 0.04;
+    for (let s = maxSize; s >= minSize; s -= step) if (fits([text], s)) return { size: s, lines: [text] };
+
+    const words = text.split(' ');
+    let lines = [text];
+    let best = Infinity;
+    ctx.font = font(maxSize);
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' ');
+      const b = words.slice(i).join(' ');
+      const w = Math.max(ctx.measureText(a).width, ctx.measureText(b).width);
+      if (w < best) { best = w; lines = [a, b]; }
+    }
+    for (let s = maxSize; s >= minSize * 0.6; s -= step) if (fits(lines, s)) return { size: s, lines };
+    return { size: minSize * 0.6, lines };
+  }
+
+  async function composePhoto(file) {
+    const t = today();
+    const tk = keyOf(t);
+    const done = new Set(dayParts(tk));
+    const parts = state.parts.filter(p => done.has(p.id));
+    const headline = photoHeadline(parts);
+    const partsLine = `${parts.map(p => p.name).join(' · ')} 완료`;
+    const statsLine = `연속 ${streak(t)}일 · 이번 주 ${weekCount(t)}/${state.weeklyGoal}회 · 올해 ${yearStats(t.getFullYear()).days}번째 출석`;
+    const dateLine = `${t.getFullYear()}.${pad(t.getMonth() + 1)}.${pad(t.getDate())} ${WEEKDAYS_EN[t.getDay()]}`;
+
+    const [img] = await Promise.all([loadImage(file), ensurePhotoFonts(headline + partsLine + statsLine + dateLine + '오운완')]);
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const W = Math.round(img.width * scale);
+    const H = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, W, H);
+    if (img.close) img.close();
+
+    const u = Math.min(W, H) / 100;
+    const m = 6 * u; // margin
+
+    // Darken top and bottom so the text reads on any photo.
+    let g = ctx.createLinearGradient(0, H * 0.45, 0, H);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.75)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, H * 0.45, W, H * 0.55);
+    g = ctx.createLinearGradient(0, 0, 0, Math.max(H * 0.2, 22 * u));
+    g.addColorStop(0, 'rgba(0,0,0,.45)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, Math.max(H * 0.2, 22 * u));
+
+    // Top left: date.
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,.35)';
+    ctx.shadowBlur = 2 * u;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = `italic 800 ${5.6 * u}px "Barlow Condensed", sans-serif`;
+    const badgeH = 7.6 * u;
+    const rowY = m + badgeH / 2;
+    ctx.fillText(dateLine, m, rowY);
+
+    // Top right: 오운완 badge.
+    ctx.shadowBlur = 0;
+    ctx.font = `800 ${4.3 * u}px "Pretendard Variable", sans-serif`;
+    const badgeW = ctx.measureText('오운완').width + 5.2 * u;
+    roundRect(ctx, W - m - badgeW, m, badgeW, badgeH, badgeH / 2);
+    ctx.fillStyle = VOLT;
+    ctx.fill();
+    ctx.fillStyle = '#0A0A0B';
+    ctx.textAlign = 'center';
+    ctx.fillText('오운완', W - m - badgeW / 2, rowY + 0.2 * u);
+    ctx.textAlign = 'left';
+
+    // Bottom block, stacked upward from the bottom margin.
+    ctx.textBaseline = 'alphabetic';
+    ctx.shadowBlur = 2 * u;
+    let y = H - m;
+    ctx.font = `600 ${3.4 * u}px "Pretendard Variable", sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,.8)';
+    ctx.fillText(statsLine, m, y);
+    y -= 3.4 * u + 2.8 * u;
+
+    ctx.font = `800 ${5.4 * u}px "Pretendard Variable", sans-serif`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(partsLine, m, y);
+    y -= 5.4 * u + 2.4 * u;
+
+    const { size, lines } = fitHeadline(ctx, headline, W - m * 2, 17 * u, 9 * u);
+    ctx.font = `italic 900 ${size}px "Barlow Condensed", "Pretendard Variable", sans-serif`;
+    ctx.fillStyle = VOLT;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      ctx.fillText(lines[i], m, y);
+      y -= size * 0.9;
+    }
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', 0.92);
+    });
+  }
+
+  const photoEditor = $('#photo-editor');
+  const photoPreview = $('#photo-preview');
+  const photoLoading = $('#photo-loading');
+  const photoSaveBtn = $('#photo-save');
+  let photoBlob = null;
+  let photoUrl = '';
+
+  function startPhoto() {
+    if (!attended(keyOf(today()))) { toast('오늘 한 운동을 먼저 체크해 주세요'); return; }
+    $('#photo-input').click();
+  }
+
+  async function openPhoto(file) {
+    photoEditor.hidden = false;
+    photoPreview.hidden = true;
+    photoLoading.hidden = false;
+    photoLoading.textContent = '사진 만드는 중…';
+    photoSaveBtn.disabled = true;
+    try {
+      photoBlob = await composePhoto(file);
+      if (photoUrl) URL.revokeObjectURL(photoUrl);
+      photoUrl = URL.createObjectURL(photoBlob);
+      photoPreview.src = photoUrl;
+      await photoPreview.decode().catch(() => {});
+      photoPreview.hidden = false;
+      photoLoading.hidden = true;
+      photoSaveBtn.disabled = false;
+    } catch (e) {
+      photoLoading.textContent = '이 사진은 열 수 없어요. 다른 사진을 골라 주세요';
+    }
+  }
+
+  function closePhoto() {
+    photoEditor.hidden = true;
+    photoPreview.removeAttribute('src');
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    photoUrl = '';
+    photoBlob = null;
+  }
+
+  async function savePhoto() {
+    if (!photoBlob) return;
+    const file = new File([photoBlob], `owoonwan-${keyOf(today())}.jpg`, { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    downloadFile(file);
+    toast('사진을 저장했어요');
   }
 
   // ---------- rendering ----------
@@ -369,6 +582,9 @@
 
       <div class="section-head"><h2>오늘 한 운동</h2><span class="kicker">Workout</span></div>
       <div class="tiles">${tiles}</div>
+      <button class="photo-cta${done.size ? '' : ' idle'}" data-action="photo">
+        ${ICON.camera}<span>${done.size ? `${esc(photoHeadline(state.parts.filter(p => done.has(p.id))))} 오운완 찍기` : '운동 체크하고 오운완 찍기'}</span>
+      </button>
       ${backupBanner()}`;
   }
 
@@ -724,6 +940,10 @@
       case 'export': exportData(); break;
       case 'import': $('#import-file').click(); break;
       case 'update': manualUpdate(); break;
+      case 'photo': startPhoto(); break;
+      case 'photo-retake': $('#photo-input').click(); break;
+      case 'photo-save': savePhoto(); break;
+      case 'photo-close': closePhoto(); break;
       case 'apply-update': applyUpdate(); break;
     }
   });
@@ -741,8 +961,16 @@
     if (file) importData(file);
   });
 
+  $('#photo-input').addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (file) openPhoto(file);
+  });
+
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeSheet();
+    if (e.key !== 'Escape') return;
+    if (!photoEditor.hidden) closePhoto();
+    else closeSheet();
   });
 
   // ---------- app updates ----------

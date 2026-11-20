@@ -54,6 +54,25 @@
   <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden></section>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <input type="file" id="import-file" accept=".json,application/json" hidden>
+  <input type="file" id="photo-input" accept="image/*" hidden>
+
+  <section class="photo-editor" id="photo-editor" role="dialog" aria-modal="true" aria-label="오운완 사진" hidden>
+    <header class="pe-bar">
+      <button class="icon-btn" data-action="photo-close" aria-label="닫기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <span class="kicker">오운완</span>
+      <span class="pe-spacer"></span>
+    </header>
+    <div class="pe-stage">
+      <p class="pe-loading" id="photo-loading">사진 만드는 중…</p>
+      <img id="photo-preview" alt="오운완 사진 미리보기" hidden>
+    </div>
+    <div class="pe-actions">
+      <button class="btn" data-action="photo-retake">다시 고르기</button>
+      <button class="btn primary" data-action="photo-save" id="photo-save" disabled>저장 · 공유</button>
+    </div>
+  </section>
 
   <noscript><p style="padding:24px;color:#fff">이 앱은 자바스크립트가 켜져 있어야 동작해요.</p></noscript>
   <script src="app.js"></script>
