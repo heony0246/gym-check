@@ -1,8 +1,11 @@
 // 짐첵 social API: accounts with a unique @handle and a password, Instagram-style
 // follow/following, daily check-ins, 오운완 photo posts and 🔥 reactions.
-// Data in D1, photos in R2.
+// Data in D1, photos in R2. Each account also has a private cloud backup in R2
+// (its records as one JSON, plus one photo per date) so a new phone gets everything back.
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const MAX_BACKUP_BYTES = 1024 * 1024;
+const MAX_BACKUP_PHOTO_BYTES = 6 * 1024 * 1024;
 const PAGE_SIZE = 20;
 const GRID_PAGE_SIZE = 30;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -78,6 +81,13 @@ async function route(request, env) {
   if (m === 'PATCH' && path === '/api/me') return updateMe(request, env, me);
   if (m === 'PUT' && path === '/api/me/password') return changePassword(request, env, me);
   if (m === 'DELETE' && path === '/api/session') return logout(env, me);
+  if (m === 'GET' && path === '/api/backup') return getBackup(env, me);
+  if (m === 'PUT' && path === '/api/backup') return putBackup(request, env, me);
+  if ((p = path.match(/^\/api\/backup\/photos\/(\d{4}-\d{2}-\d{2})$/))) {
+    if (m === 'GET') return getBackupPhoto(env, me, p[1]);
+    if (m === 'PUT') return putBackupPhoto(request, env, me, p[1]);
+    if (m === 'DELETE') return deleteBackupPhoto(env, me, p[1]);
+  }
   if (m === 'GET' && path === '/api/search') return search(env, me, url);
   if (m === 'GET' && path === '/api/feed') return feed(env, me, url);
   if (m === 'GET' && path === '/api/today') return todayList(env, me, url);
@@ -458,7 +468,75 @@ async function toggleFire(env, me, postId) {
   return json({ fires: count, fired: !had });
 }
 
-// Photo URLs carry a random, unguessable key.
+// ---------- cloud backup (private to the account) ----------
+
+const backupKey = (userId, name) => `backup/${userId}/${name}`;
+
+// Reads a body whose size the client declared, refusing anything over the limit.
+async function readBounded(request, max, tooBig) {
+  const length = Number(request.headers.get('Content-Length') || 0);
+  if (!length) throw new HttpError(411, '요청 크기를 알 수 없어요');
+  if (length > max) throw new HttpError(413, tooBig);
+  const buf = await request.arrayBuffer();
+  if (buf.byteLength > max) throw new HttpError(413, tooBig);
+  return buf;
+}
+
+async function getBackup(env, me) {
+  const photos = [];
+  let cursor;
+  do {
+    const page = await env.IMAGES.list({ prefix: backupKey(me.id, 'photos/'), cursor, limit: 1000 });
+    for (const o of page.objects) {
+      const d = o.key.match(/(\d{4}-\d{2}-\d{2})\.jpg$/);
+      if (d) photos.push(d[1]);
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  const obj = await env.IMAGES.get(backupKey(me.id, 'state.json'));
+  if (!obj) return json({ data: null, updatedAt: 0, photos });
+  const { updatedAt, data } = await obj.json();
+  return json({ data, updatedAt, photos });
+}
+
+async function putBackup(request, env, me) {
+  const buf = await readBounded(request, MAX_BACKUP_BYTES, '기록이 너무 커요');
+  let body;
+  try {
+    body = JSON.parse(new TextDecoder().decode(buf));
+  } catch (e) {
+    throw new HttpError(400, '요청 형식이 잘못됐어요');
+  }
+  const data = body && body.data;
+  if (!data || typeof data !== 'object' || !data.records || typeof data.records !== 'object' || Array.isArray(data.records)) {
+    throw new HttpError(400, '기록 형식이 잘못됐어요');
+  }
+  const updatedAt = Date.now();
+  await env.IMAGES.put(backupKey(me.id, 'state.json'), JSON.stringify({ updatedAt, data }), {
+    httpMetadata: { contentType: 'application/json' },
+  });
+  return json({ updatedAt });
+}
+
+async function getBackupPhoto(env, me, date) {
+  const obj = await env.IMAGES.get(backupKey(me.id, `photos/${date}.jpg`));
+  if (!obj) throw new HttpError(404, '사진이 없어요');
+  return new Response(obj.body, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' } });
+}
+
+async function putBackupPhoto(request, env, me, date) {
+  if (!String(request.headers.get('Content-Type') || '').startsWith('image/jpeg')) throw new HttpError(400, 'JPEG 사진만 올릴 수 있어요');
+  const buf = await readBounded(request, MAX_BACKUP_PHOTO_BYTES, '사진이 너무 커요');
+  await env.IMAGES.put(backupKey(me.id, `photos/${date}.jpg`), buf, { httpMetadata: { contentType: 'image/jpeg' } });
+  return json({ ok: true });
+}
+
+async function deleteBackupPhoto(env, me, date) {
+  await env.IMAGES.delete(backupKey(me.id, `photos/${date}.jpg`));
+  return json({ ok: true });
+}
+
+// Feed photo URLs carry a random, unguessable key.
 async function getImage(env, key) {
   const obj = await env.IMAGES.get(key);
   if (!obj) throw new HttpError(404, '사진이 없어요');

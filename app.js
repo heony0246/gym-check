@@ -23,7 +23,7 @@
   const MAX_NAME = 8;
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '2.0.0';
+  const APP_VERSION = '2.1.0';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -58,7 +58,7 @@
 
   // ---------- state ----------
   function defaultState() {
-    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoFormat: 'orig', social: null };
+    return { version: 1, parts: DEFAULT_PARTS.map(p => ({ ...p })), records: {}, weeklyGoal: 4, lastBackup: null, photoFormat: 'orig', social: null, cloud: { syncedAt: 0, dirty: false } };
   }
 
   // Validates anything that comes from storage or a backup file.
@@ -109,6 +109,7 @@
       };
     }
     if (typeof src.lastBackup === 'string' && !Number.isNaN(Date.parse(src.lastBackup))) out.lastBackup = src.lastBackup;
+    if (src.cloud && Number.isFinite(src.cloud.syncedAt)) out.cloud = { syncedAt: src.cloud.syncedAt, dirty: src.cloud.dirty === true };
     return out;
   }
 
@@ -126,6 +127,7 @@
   }
 
   function save() {
+    if (state.social && state.social.token) noteCloudChange();
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
       return true;
@@ -136,6 +138,9 @@
   }
 
   let state = load();
+  // Cloud backup bookkeeping (see "cloud backup" below). sig = what the server last
+  // got from us (or what we last loaded), to notice when records actually change.
+  const cloud = { sig: cloudSig(), timer: 0, pushing: null, again: false, syncing: null, lastPull: 0, note: '' };
   const ui = {
     tab: 'today',
     calMonth: firstOfMonth(today()),
@@ -319,6 +324,7 @@
       : [];
     // A backup made before signing up has no login: keep the one this phone has.
     if (!next.social && state.social) next.social = state.social;
+    next.cloud = state.cloud; // this phone's sync status, not the file's
     const switchesAccount = next.social && (!state.social || next.social.userId !== state.social.userId);
     const days = Object.keys(next.records).length;
     const nowDays = Object.keys(state.records).length;
@@ -343,6 +349,7 @@
     }
     renderCurrent();
     toast(`기록 ${days}일${photos.length ? `, 사진 ${ok}장` : ''}을 가져왔어요`);
+    if (loggedIn()) cloudSync();
   }
 
   function downloadFile(file) {
@@ -899,6 +906,7 @@
     const posting = loggedIn() && state.social.autoPost !== false ? postToFeed(key, blob).then(() => true, e => e) : null;
     await shareOrDownload(new File([blob], `owoonwan-${key}.jpg`, { type: 'image/jpeg' }));
     const ok = await stored;
+    if (ok) cloudPutPhoto(key);
     const posted = posting ? await posting : null;
     renderCurrent();
     if (posted && posted !== true) toast(`피드에 못 올렸어요: ${posted.message}`);
@@ -1055,6 +1063,7 @@
     clearSheetPhoto();
     renderCurrent();
     toast('사진을 지웠어요');
+    if (loggedIn()) api(`/api/backup/photos/${k}`, { method: 'DELETE' }).catch(() => { /* next sync may bring it back */ });
   }
 
   const md = key => { const d = parseKey(key); return `${d.getMonth() + 1}월 ${d.getDate()}일`; };
@@ -1072,12 +1081,15 @@
 
   const loggedIn = () => Boolean(state.social && state.social.token);
 
-  async function api(path, { method = 'GET', body, form } = {}) {
+  async function api(path, { method = 'GET', body, form, raw, as } = {}) {
     const headers = {};
     if (loggedIn()) headers.Authorization = `Bearer ${state.social.token}`;
     let payload;
     if (form) payload = form;
-    else if (body !== undefined) {
+    else if (raw) {
+      headers['Content-Type'] = 'image/jpeg';
+      payload = raw;
+    } else if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
       payload = JSON.stringify(body);
     }
@@ -1088,6 +1100,7 @@
     } catch (e) {
       throw new Error('인터넷 연결을 확인해 주세요');
     }
+    if (res.ok && as === 'blob') return res.blob();
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       if (res.status === 401 && sentToken && loggedIn() && state.social.token === sentToken) sessionEnded();
@@ -1125,6 +1138,191 @@
     const days = {};
     for (const key of Object.keys(state.records)) if (key.startsWith(prefix)) days[key] = partNames(key);
     try { await api('/api/days', { method: 'PUT', body: { days } }); } catch (e) { /* not critical */ }
+  }
+
+  // ---- cloud backup: records and day photos follow the account ----
+  // Logged in, every change is sent to the server (private to the account) a moment
+  // later, and opening the app pulls. A new phone gets everything back on login. If
+  // this phone has unsent changes while another phone also saved, check-ins are merged.
+  function cloudData() {
+    return { records: state.records, parts: state.parts, weeklyGoal: state.weeklyGoal, photoFormat: state.photoFormat };
+  }
+  function cloudSig() { return JSON.stringify(cloudData()); }
+
+  function noteCloudChange() {
+    const sig = cloudSig();
+    if (sig === cloud.sig) return;
+    cloud.sig = sig;
+    state.cloud.dirty = true;
+    clearTimeout(cloud.timer);
+    cloud.timer = setTimeout(cloudPush, 1500);
+  }
+
+  function resetCloud() {
+    clearTimeout(cloud.timer);
+    state.cloud = { syncedAt: 0, dirty: false };
+    cloud.sig = cloudSig();
+    cloud.lastPull = 0;
+  }
+
+  async function cloudPush() {
+    clearTimeout(cloud.timer);
+    if (!loggedIn() || !state.cloud.dirty) return true;
+    if (cloud.pushing) { cloud.again = true; return cloud.pushing; }
+    const sig = cloud.sig;
+    let ok = false;
+    cloud.pushing = (async () => {
+      try {
+        const { updatedAt } = await api('/api/backup', { method: 'PUT', body: { data: cloudData() } });
+        state.cloud.syncedAt = updatedAt;
+        if (cloud.sig === sig) state.cloud.dirty = false;
+        save();
+        ok = true;
+      } catch (e) { /* stays dirty: retried on the next change or when the app opens */ }
+    })();
+    await cloud.pushing;
+    cloud.pushing = null;
+    if (cloud.again || (ok && state.cloud.dirty)) {
+      cloud.again = false;
+      cloud.timer = setTimeout(cloudPush, 1500);
+    }
+    updateCloudStatus();
+    return ok;
+  }
+
+  // Replaces (or, with merge, unions) this phone's records with the server's.
+  // Returns the server copy's signature, to tell whether we still differ from it.
+  function applyCloudData(data, merge) {
+    const incoming = normalize({ records: data.records, parts: data.parts, weeklyGoal: data.weeklyGoal, photoFormat: data.photoFormat });
+    const serverSig = JSON.stringify({ records: incoming.records, parts: incoming.parts, weeklyGoal: incoming.weeklyGoal, photoFormat: incoming.photoFormat });
+    if (!merge) {
+      state.records = incoming.records;
+      state.parts = incoming.parts;
+      state.weeklyGoal = incoming.weeklyGoal;
+      state.photoFormat = incoming.photoFormat;
+      return serverSig;
+    }
+    const parts = state.parts.slice();
+    for (const p of incoming.parts) if (!parts.some(q => q.id === p.id)) parts.push(p);
+    const order = parts.map(p => p.id);
+    const records = {};
+    for (const k of new Set([...Object.keys(state.records), ...Object.keys(incoming.records)])) {
+      const set = new Set([...(state.records[k] || []), ...(incoming.records[k] || [])]);
+      const arr = order.filter(id => set.has(id));
+      if (arr.length) records[k] = arr;
+    }
+    state.parts = parts;
+    state.records = records;
+    return serverSig;
+  }
+
+  // Pull, settle differences, push, then even out photos. welcome: just logged in here.
+  function cloudSync({ welcome = false } = {}) {
+    if (!loggedIn()) return Promise.resolve(false);
+    if (cloud.syncing) return cloud.syncing;
+    cloud.syncing = (async () => {
+      let r;
+      try {
+        r = await api('/api/backup');
+      } catch (e) {
+        return false;
+      }
+      cloud.lastPull = Date.now();
+      const first = !state.cloud.syncedAt;
+      if (!r.data) {
+        state.cloud.dirty = true; // nothing on the server yet: send ours
+      } else if (first || r.updatedAt > state.cloud.syncedAt) {
+        const hadLocal = Object.keys(state.records).length > 0;
+        const merge = first ? hadLocal : state.cloud.dirty;
+        const before = Object.keys(state.records).length;
+        let serverSig;
+        try { serverSig = applyCloudData(r.data, merge); } catch (e) { serverSig = null; }
+        if (serverSig !== null) {
+          state.cloud.syncedAt = r.updatedAt;
+          cloud.sig = cloudSig();
+          state.cloud.dirty = cloud.sig !== serverSig;
+          save();
+          renderCurrent();
+          const after = Object.keys(state.records).length;
+          if (welcome && after > before) toast(`서버에 저장된 출석 기록 ${after}일을 가져왔어요`);
+        }
+      }
+      const pushed = await cloudPush();
+      await cloudSyncPhotos(r.photos || []);
+      return pushed;
+    })();
+    const done = cloud.syncing;
+    done.finally(() => { cloud.syncing = null; updateCloudStatus(); });
+    return done;
+  }
+
+  async function cloudSyncPhotos(serverDates) {
+    if (!('indexedDB' in window)) return;
+    let local;
+    try { local = await photoStore.keys(); } catch (e) { return; }
+    const onServer = new Set(serverDates);
+    const here = new Set(local);
+    const down = serverDates.filter(k => !here.has(k));
+    const up = local.filter(k => !onServer.has(k));
+    let got = 0;
+    for (const [i, k] of down.entries()) {
+      cloud.note = `사진 가져오는 중… ${i + 1}/${down.length}`;
+      updateCloudStatus();
+      if (down.length > 2) toast(cloud.note);
+      try {
+        await storeDayPhoto(k, await api(`/api/backup/photos/${k}`, { as: 'blob' }));
+        got++;
+      } catch (e) { /* try again next time */ }
+    }
+    for (const [i, k] of up.entries()) {
+      cloud.note = `사진 올리는 중… ${i + 1}/${up.length}`;
+      updateCloudStatus();
+      await cloudPutPhoto(k);
+    }
+    cloud.note = '';
+    updateCloudStatus();
+    if (got) {
+      renderCurrent();
+      toast(`오운완 사진 ${got}장을 가져왔어요`);
+    }
+  }
+
+  async function cloudPutPhoto(key) {
+    if (!loggedIn()) return false;
+    try {
+      const blob = await photoStore.full(key);
+      if (!blob) return false;
+      await api(`/api/backup/photos/${key}`, { method: 'PUT', raw: blob });
+      return true;
+    } catch (e) {
+      return false; // the next sync uploads whatever is missing
+    }
+  }
+
+  function cloudStatusText() {
+    if (cloud.note) return cloud.note;
+    if (cloud.syncing || cloud.pushing) return '저장 중…';
+    if (state.cloud.dirty) return '저장 대기 중 · 인터넷이 연결되면 저장돼요';
+    if (!state.cloud.syncedAt) return '아직 저장 전';
+    const d = new Date(state.cloud.syncedAt);
+    const when = keyOf(d) === keyOf(today()) ? `오늘 ${pad(d.getHours())}:${pad(d.getMinutes())}` : `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `기록·사진 자동 저장 · 마지막 ${when}`;
+  }
+
+  function updateCloudStatus() {
+    const el = $('#cloud-status');
+    if (el) el.textContent = cloudStatusText();
+  }
+
+  async function manualCloudSync() {
+    if (!loggedIn()) return;
+    const btn = $('[data-action="cloud-sync"]');
+    if (btn) btn.disabled = true;
+    updateCloudStatus();
+    if (!state.cloud.dirty) state.cloud.dirty = true; // force a fresh upload of the records
+    const ok = await cloudSync();
+    if (btn) btn.disabled = false;
+    toast(ok ? '서버에 저장했어요' : '저장하지 못했어요. 인터넷 연결을 확인해 주세요');
   }
 
   // ---- screens: a small stack (feed → profile → post …) with a back button ----
@@ -1281,6 +1479,7 @@
   function sessionEnded() {
     const handle = state.social.handle;
     state.social = null;
+    resetCloud();
     save();
     showLoggedOut(handle);
     toast('로그인이 풀렸어요. 다시 로그인해 주세요');
@@ -1309,12 +1508,14 @@
         ? await api('/api/login', { method: 'POST', body: { handle, password } })
         : await api('/api/users', { method: 'POST', body: { handle, nickname, password } });
       state.social = { token, userId: user.id, handle: user.handle, nickname: user.nickname, autoPost: true };
+      resetCloud();
       save();
       social.form = { handle: '', nickname: '', password: '' };
       social.mode = 'signup';
       toast(login ? `@${user.handle}로 로그인했어요` : `@${user.handle}로 시작했어요`);
       social.busy = false;
       syncFeedToggle();
+      cloudSync({ welcome: login }); // brings records and photos back (login) or sends them up (sign-up)
       await syncYear();
       social.stack = [{ view: 'feed' }];
       renderSocial();
@@ -1332,9 +1533,11 @@
     if (!loggedIn()) return;
     const handle = state.social.handle;
     if (!confirm(`@${handle}에서 로그아웃할까요?\n다시 들어오려면 아이디와 비밀번호가 필요해요. 출석 기록과 사진은 이 폰에 그대로 있어요.`)) return;
+    await cloudPush(); // don't leave unsent changes behind
     try { await api('/api/session', { method: 'DELETE' }); } catch (e) { /* the token is dropped here either way */ }
     if (state.social) {
       state.social = null;
+      resetCloud();
       save();
       showLoggedOut(handle);
     }
@@ -1478,9 +1681,10 @@
     const label = social.busy ? (login ? '확인 중…' : '만드는 중…') : (login ? '로그인' : '시작하기');
     return `<header class="head"><div><p class="kicker">Feed</p><h1>${login ? '로그인' : '피드'}</h1></div></header>
       <div class="crew-intro">${login
-        ? '아이디와 비밀번호로 들어오면 팔로우와 올린 오운완이 그대로 있어요.<br>출석 기록과 사진은 폰에 저장돼서, 새 폰이라면 <b>설정 → 가져오기</b>로 백업을 불러와 주세요.'
+        ? '아이디와 비밀번호로 들어오면 팔로우, 올린 오운완, 그리고 서버에 저장된 <b>출석 기록과 오운완 사진</b>까지 이 폰으로 돌아와요.'
         : `아이디를 만들면 친구를 <b>팔로우</b>하고, 서로 <b>오늘 운동했는지</b>랑 <b>오운완 카드</b>를 볼 수 있어요. 🔥로 응원도 하고요.<br>
-        누가 몇 kg 들었는지 같은 건 없어요. 그냥 오운완이에요.`}
+        누가 몇 kg 들었는지 같은 건 없어요. 그냥 오운완이에요.<br>
+        가입하면 출석 기록과 오운완 사진이 <b>서버에도 자동 저장</b>돼서, 폰을 바꿔도 로그인만 하면 그대로예요.`}
       </div>
       <form class="auth-form" data-form="soc-auth" novalidate>
         <div class="crew-panel">
@@ -1917,6 +2121,10 @@
           <span class="row-label">@${esc(state.social.handle)}<small>${esc(state.social.nickname)}</small></span>
           <button class="btn" data-action="soc-logout">로그아웃</button>
         </div>
+        <div class="row">
+          <span class="row-label">클라우드 저장<small id="cloud-status">${esc(cloudStatusText())}</small></span>
+          <button class="btn" data-action="cloud-sync">지금 저장</button>
+        </div>
         ${ui.pwForm ? `
         <form class="pw-form" data-form="pw-change" novalidate>
           <input class="sr-only" type="text" name="username" autocomplete="username" value="${esc(state.social.handle)}" tabindex="-1" aria-hidden="true">
@@ -1932,7 +2140,7 @@
           <button class="btn" data-action="pw-open">바꾸기</button>
         </div>`}` : `
         <div class="row">
-          <span class="row-label">로그인 안 됨<small>피드에서 아이디를 만들거나 로그인해요</small></span>
+          <span class="row-label">로그인 안 됨<small>로그인하면 기록과 사진이 서버에도 자동 저장돼요</small></span>
           <button class="btn" data-action="soc-goto-login">로그인</button>
         </div>`}
       </div>
@@ -1948,7 +2156,9 @@
           <button class="btn" data-action="import">가져오기</button>
         </div>
       </div>
-      <p class="note tight">기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 백업 파일에는 기록, 앱에 저장한 오운완 사진, 피드 로그인이 함께 들어가요.</p>
+      <p class="note tight">${loggedIn()
+        ? '로그인돼 있어서 기록과 오운완 사진이 서버에도 자동 저장돼요. 새 폰에서 로그인하면 그대로 돌아와요. 백업 파일은 따로 보관하고 싶을 때 쓰세요.'
+        : '기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 피드에 로그인하면 서버에도 자동 저장돼요.'}</p>
 
       ${standalone ? '' : `
       <div class="section-head"><h2>홈 화면에 추가</h2><span class="kicker">Install</span></div>
@@ -2132,6 +2342,7 @@
         setTab('social');
         break;
       case 'soc-logout': logOut(); break;
+      case 'cloud-sync': manualCloudSync(); break;
       case 'pw-open':
         ui.pwForm = true;
         renderCurrent();
@@ -2330,6 +2541,10 @@
   loadPhotoThumbs();
   scheduleMidnightRefresh();
   setTimeout(checkForUpdate, 800);
+  if (loggedIn()) setTimeout(() => cloudSync(), 1200);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && loggedIn() && Date.now() - cloud.lastPull > 5 * 60 * 1000) cloudSync();
+  });
 
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
