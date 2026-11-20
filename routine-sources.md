@@ -2,6 +2,49 @@
 
 앱의 부위별 추천 루틴은 아래 페이지들의 루틴을 앱 종목에 맞춰 옮긴 거예요. (1번 정석 루틴은 직접 정리)
 
+## chest (40)
+
+- 덤벨·바벨 초보 기본 — https://barbend.com/bodybuilding-chest-workout/
+- 플라이 선피로 상급 — https://barbend.com/bodybuilding-chest-workout/
+- 올드스쿨 피라미드 — https://fitnessvolt.com/old-school-chest-workout/
+- 매스 빌딩 6종 — https://totalshape.com/fitness/chest-workouts
+- 고반복 데피니션 — https://totalshape.com/fitness/chest-workouts
+- 윗가슴 집중 6종 — https://totalshape.com/fitness/chest-workouts
+- 인클라인 5x5 중심 — https://www.setforset.com/blogs/news/chest-day-workout
+- 부위별 프레스+플라이 — https://learn.athleanx.com/articles/the-perfect-chest-workout
+- 5x5 벤치 근력 — https://www.coachweb.com/workouts/chest-workouts
+- 슈퍼세트 볼륨업 — https://www.coachweb.com/chest-workouts/7775/the-chest-workout-for-men-who-want-bigger-pecs
+- 초보 저반복 근력 — https://www.garagegymreviews.com/best-chest-exercises
+- 프레스·플라이 교차 — https://www.garagegymreviews.com/best-chest-exercises
+- 윗가슴 인클라인 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-a-bigger-chest
+- 아랫가슴 디클라인 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-a-bigger-chest
+- 바벨 3각도 근력 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-a-bigger-chest
+- 덤벨 3각도 사이즈 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-a-bigger-chest
+- 아놀드 클래식 — https://www.setforset.com/blogs/news/arnold-schwarzenegger-chest-workout
+- 한 달 가슴 볼륨 — https://www.jefit.com/routines/21828/bigger-chest-in-a-month
+- 덤벨·케이블 기본 — https://www.nike.com/a/chest-day-workout-routine
+- 파워 저반복 프레스 — https://www.askthetrainer.com/best-chest-workout-for-men/
+- 중·하부 가슴 집중 — https://www.muscleandstrength.com/articles/5-advanced-chest-workouts-using-scientific-proven-techniques
+- 상부 가슴 집중 — https://www.muscleandstrength.com/articles/5-advanced-chest-workouts-using-scientific-proven-techniques
+- 레스트포즈 고강도 — https://www.muscleandstrength.com/articles/5-advanced-chest-workouts-using-scientific-proven-techniques
+- 머신 위주 초보 — https://tilnote.io/pages/6a0af303feaf255d2099baf8
+- 벤치 중심 근비대 — https://blog.naver.com/letsruns2/224448780524
+- 50분 선피로 루틴 — https://blog.naver.com/onfit_eulji/224483691862
+- 덤벨 위주 초보 — https://blog.naver.com/stronggym3/224482036439
+- 펙덱 선피로 근비대 — https://blog.naver.com/fill7607/224400892528
+- 벤치 5x5 스트렝스 — https://blog.naver.com/fill7607/224400892528
+- 스미스 초중급 — https://blog.naver.com/coach_kimwonje/224440291153
+- 5세트 12회 볼륨 — https://blog.naver.com/im_pt/224459403986
+- 스미스 윗가슴 — https://blog.naver.com/simwongyu98/224479773500
+- 머신 3각도 프레스 — https://blog.naver.com/wisdom041119/224475094991
+- 플레이트 머신 위주 — https://blog.naver.com/arkgymjj/224427218747
+- 머신 입문 4종 — https://blog.naver.com/fit_up_715/224456226459
+- 인클라인 선피로 — https://blog.naver.com/hey44320/224439453379
+- 덤벨만 3종 — https://blog.naver.com/dpdlqmfwla4/224418146372
+- 홈트 덤벨+푸시업 — https://blog.naver.com/hrsbs1/224061784485
+- 중급 볼륨 증가 — https://blog.naver.com/kimmosejjang/224291235992
+- 머신·케이블 하부 — https://blog.naver.com/lee941027/224297749380
+
 ## back (40)
 
 - 고볼륨 매스 4종목 — https://shop.bodybuilding.com/blogs/training/6-back-workouts-to-get-a-bigger-stronger-back
@@ -176,3 +219,46 @@
 - 딥스·덤벨 삼두 — https://fitnessvolt.com/old-school-triceps-workouts/
 - 이두 근비대 — https://www.garagegymreviews.com/best-bicep-workout
 - 삼두 피라미드 — https://builtwithscience.com/best-triceps-workout/
+
+## abs (40)
+
+- 케이블 크런치 입문 — https://shop.bodybuilding.com/blogs/training/the-best-ab-workouts-to-build-a-muscular-six-pack
+- 회전+크런치 믹스 — https://shop.bodybuilding.com/blogs/training/the-best-ab-workouts-to-build-a-muscular-six-pack
+- 머신 복근+옆구리 — https://shop.bodybuilding.com/blogs/training/the-best-ab-workouts-to-build-a-muscular-six-pack
+- 하드 앤 헤비 복근 — https://shop.bodybuilding.com/blogs/training/10-best-ab-exercises-for-building-muscle
+- 케이블 머신 복근 — https://shop.bodybuilding.com/blogs/training/10-best-ab-exercises-for-building-muscle
+- 20분 복근 트라이셋 — https://www.coachweb.com/abs-workouts/6069/a-brutal-20-minute-abs-workout
+- 고강도 케이블 코어 — https://www.coachweb.com/abs-workouts/7156/sculpt-a-six-pack-with-this-abs-workout-routine
+- 하복부+옆구리 서킷 — https://www.coachweb.com/exercises/get-a-six-pack/4045/how-to-get-rock-hard-abs-in-six-weeks
+- 롤아웃 슈퍼세트 — https://www.coachweb.com/exercises/get-a-six-pack/4045/how-to-get-rock-hard-abs-in-six-weeks
+- 저반복 고중량 복근 — https://thebarbell.com/best-ab-workout/
+- 베스트 4종 자이언트 — https://thebarbell.com/best-ab-workout/
+- 식스팩 기본 루틴 — https://builtwithscience.com/six-pack-abs-workout/
+- 롤아웃 중심 복근 — https://www.strengthlog.com/abs-muscles-exercises-workout/
+- 하체날 복근 마무리 — https://www.strengthlog.com/leg-and-ab-workout/
+- 케이블 코어 서킷 — https://www.yourworkoutbook.com/cable-machine-ab-exercises/
+- 케이블 코어 집중 — https://www.setforset.com/blogs/news/cable-ab-exercises
+- 토탈 코어 혼합 — https://www.setforset.com/blogs/news/cable-ab-exercises
+- 케이블 회전 복근 — https://fitnessvolt.com/best-cable-exercises-abs/
+- 퀵 복근 루틴 — https://www.jefit.com/routines/21444/quick-abs-workout
+- 고반복 식스팩 — https://www.jefit.com/routines/19113/6-weeks-to-six-pack-abs
+- 코어 강화 A — https://www.jefit.com/routines/331332/stronger-abs-in-6-weeks
+- 코어 강화 B 회전 — https://www.jefit.com/routines/331332/stronger-abs-in-6-weeks
+- 올라운드 복근 5종 — https://generationiron.com/ab-workout/
+- 롤아웃+트위스트 — https://exercise.com/workout-plans/the-best-abs-workout-plan
+- 코어 근력·선명도 — https://nutrabio.com/blogs/blog/ab-workouts
+- 플랭크→롤아웃 6종 — https://americangrit.com/post/six-pack-secret-weapon-barbell-rollouts
+- 롤아웃·하복부 데이 — https://www.boxrox.com/quick-gym-tips-how-many-reps-and-sets-are-best-for-building-six-pack-abs/
+- 복근 근비대 — https://barbend.com/best-ab-exercises/
+- 코어 근력 케이블 — https://barbend.com/best-ab-exercises/
+- 맨몸 버티기 코어 — https://barbend.com/best-ab-exercises/
+- 케이블 복근 초급 — https://barbend.com/cable-ab-workouts/
+- 토투바 밸런스 — https://barbend.com/cable-ab-workouts/
+- 허리 보호 코어 — https://barbend.com/best-core-exercises/
+- 데일리 안정화 코어 — https://www.fitandwell.com/exercise/bodyweight-exercises/im-a-personal-trainer-and-these-are-my-three-non-negotiable-core-exercises-i-do-daily
+- 맨몸 3종 기본 — https://www.allurekorea.com/2022/05/07/%ec%8a%a4%ed%83%80%eb%93%a4%ec%9d%98-%eb%b3%b5%ea%b7%bc-%ec%8b%ac%ed%8f%90-%ec%86%8c%ec%83%9d%eb%b2%95/
+- 맨몸 복근 4종 — https://www.gqkorea.co.kr/2024/05/17/%ec%98%ac%ed%95%b4%eb%8a%94-%ec%96%91%ec%96%91-%ea%b0%80%ec%9e%90-%ed%94%bc%ec%a7%80%ec%bb%ac-100-%ed%99%8d%eb%b2%94%ec%84%9d%ec%9d%98-%eb%b3%b5%ea%b7%bc-%ec%9a%b4%eb%8f%99%eb%b2%95/
+- 윗몸+옆구리 맨몸 — https://www.esquirekorea.co.kr/article/1880033
+- 데드버그 코어 기초 — https://www.gqkorea.co.kr/2022/07/19/%ec%8b%9d%ec%8a%a4%ed%8c%a9%ec%9d%84-%ec%9c%84%ed%95%9c-%ec%b5%9c%ea%b3%a0%ec%9d%98-%eb%b3%b5%ea%b7%bc-%ec%9a%b4%eb%8f%99-6%ea%b0%80%ec%a7%80/
+- 윗배·아랫배 정복 — https://lady.khan.co.kr/health/article/201408291546061
+- 현실 식스팩 플랜 — https://www.gqkorea.co.kr/2026/04/24/%ec%a7%80%ea%b8%88%ec%9d%b4-%ec%a0%81%ea%b8%b0-%eb%b9%a0%eb%a5%b4%ea%b2%8c-%ec%8b%9d%ec%8a%a4%ed%8c%a9-%eb%a7%8c%eb%93%9c%eb%8a%94-%ed%98%84%ec%8b%a4%ec%a0%81%ec%9d%b8-%ed%94%8c%eb%9e%9c/

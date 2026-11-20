@@ -270,6 +270,48 @@
   // Real routines collected from fitness sites (see routine-sources.md), per part.
   // [exercise id, sets, reps]; reps '' = as many as you can.
   const COLLECTED_ROUTINES = {
+    chest: [
+      [["dumbbell-bench-press", 3, "6"], ["incline-bench-press", 3, "8"], ["chest-dips", 2, "10"], ["push-up", 2, "10"]],
+      [["dumbbell-fly", 3, "20"], ["dumbbell-bench-press", 4, "6"], ["incline-bench-press", 3, "8"], ["incline-dumbbell-press", 3, "12"], ["cable-crossover", 4, "15"], ["push-up", 2, ""]],
+      [["barbell-bench-press", 4, "6-12"], ["incline-dumbbell-press", 3, "10-15"], ["chest-dips", 2, ""], ["cable-crossover", 3, "12-15"]],
+      [["barbell-bench-press", 3, "5-8"], ["incline-dumbbell-press", 3, "5-8"], ["decline-bench-press", 3, "8-10"], ["dumbbell-fly", 3, "8-10"], ["low-to-high-cable-fly", 3, "8-10"], ["chest-dips", 2, ""]],
+      [["incline-dumbbell-press", 4, "10-12"], ["chest-press-machine", 4, "10-12"], ["pec-deck-fly", 3, "10-12"], ["cable-crossover", 3, "10-12"], ["incline-dumbbell-fly", 3, "10-12"]],
+      [["incline-bench-press", 3, "5-8"], ["incline-dumbbell-fly", 3, "8-10"], ["low-to-high-cable-fly", 3, "8-10"], ["dumbbell-pullover", 3, "5-8"], ["incline-dumbbell-press", 3, "12-15"], ["incline-chest-press-machine", 3, "12-15"]],
+      [["incline-bench-press", 5, "5"], ["chest-dips", 4, "6-8"], ["dumbbell-bench-press", 3, "8-10"], ["cable-crossover", 4, "8-12"], ["dumbbell-pullover", 3, "8-12"]],
+      [["barbell-bench-press", 4, "6-12"], ["cable-crossover", 4, "15"], ["incline-bench-press", 4, "6-12"], ["low-to-high-cable-fly", 4, "15"], ["chest-dips", 4, "6-12"], ["push-up", 3, ""]],
+      [["barbell-bench-press", 5, "5"], ["incline-bench-press", 5, "5"], ["incline-dumbbell-press", 4, "8"], ["incline-dumbbell-fly", 4, "10"], ["push-up", 4, "12"]],
+      [["barbell-bench-press", 5, "8"], ["cable-crossover", 5, "12"], ["incline-dumbbell-press", 4, "12"], ["incline-dumbbell-fly", 4, "12"], ["dumbbell-pullover", 3, "15"], ["push-up", 3, "15"]],
+      [["barbell-bench-press", 3, "3-5"], ["dumbbell-fly", 3, "8-12"], ["incline-bench-press", 3, "3-5"], ["cable-crossover", 3, "8-12"], ["push-up", 3, "8-12"]],
+      [["incline-bench-press", 4, "6-12"], ["dumbbell-fly", 4, "6-12"], ["dumbbell-bench-press", 4, "6-12"], ["dumbbell-pullover", 4, "6-12"], ["cable-crossover", 4, "6-12"]],
+      [["incline-bench-press", 3, "4-6"], ["incline-dumbbell-press", 3, "8"], ["incline-dumbbell-fly", 3, "8-12"], ["push-up", 3, "12"]],
+      [["decline-bench-press", 3, "4-6"], ["decline-dumbbell-press", 3, "8"], ["dumbbell-fly", 3, "8-12"], ["push-up", 3, "12"]],
+      [["barbell-bench-press", 3, "4-6"], ["incline-bench-press", 3, "4-6"], ["decline-bench-press", 3, "4-6"], ["chest-dips", 3, "8-12"]],
+      [["dumbbell-bench-press", 3, "8-12"], ["incline-dumbbell-press", 3, "8-12"], ["decline-dumbbell-press", 3, "8-12"], ["chest-dips", 3, "8-12"]],
+      [["barbell-bench-press", 5, "6-20"], ["incline-bench-press", 5, "10-15"], ["dumbbell-fly", 5, "10-15"], ["chest-dips", 5, "15"], ["dumbbell-pullover", 5, "15-20"]],
+      [["dumbbell-bench-press", 3, "10-14"], ["incline-bench-press", 4, "8-14"], ["decline-dumbbell-press", 4, "8-14"], ["incline-dumbbell-fly", 3, "8-12"], ["cable-crossover", 3, "8-12"]],
+      [["dumbbell-fly", 3, "10-12"], ["push-up", 3, "10-12"], ["dumbbell-bench-press", 3, "10-12"], ["cable-crossover", 3, "10-12"]],
+      [["barbell-bench-press", 5, "3-5"], ["dumbbell-bench-press", 5, "3-5"], ["smith-incline-press", 3, "3-5"], ["decline-bench-press", 3, "3-5"]],
+      [["decline-bench-press", 4, "12"], ["dumbbell-bench-press", 4, "12"], ["dumbbell-fly", 4, "10"], ["low-to-high-cable-fly", 4, "15"], ["chest-press-machine", 3, ""]],
+      [["incline-bench-press", 4, "12"], ["incline-dumbbell-press", 4, "8"], ["dumbbell-pullover", 4, "12"], ["incline-dumbbell-fly", 4, "12"], ["low-to-high-cable-fly", 4, "15-20"]],
+      [["barbell-bench-press", 4, "6"], ["incline-dumbbell-press", 3, "8"], ["incline-dumbbell-fly", 4, "15"], ["cable-crossover", 4, "15"], ["chest-press-machine", 2, "12"]],
+      [["chest-press-machine", 3, "8-12"], ["dumbbell-bench-press", 3, "8-12"], ["pec-deck-fly", 2, "12-15"], ["push-up", 2, ""]],
+      [["barbell-bench-press", 4, "6-10"], ["incline-dumbbell-press", 3, "8-12"], ["chest-press-machine", 3, "10-15"], ["cable-crossover", 3, "12-15"]],
+      [["pec-deck-fly", 3, "12-15"], ["barbell-bench-press", 4, "8-10"], ["incline-dumbbell-press", 3, "10"], ["chest-dips", 3, "10"]],
+      [["push-up", 2, "10-15"], ["dumbbell-bench-press", 3, "8-12"], ["incline-dumbbell-press", 3, "8-12"], ["pec-deck-fly", 3, "12-15"], ["cable-crossover", 3, "12-15"]],
+      [["pec-deck-fly", 3, "15-20"], ["barbell-bench-press", 4, "8-10"], ["incline-dumbbell-press", 3, "10-12"], ["cable-crossover", 3, "12-15"]],
+      [["barbell-bench-press", 5, "5"], ["incline-dumbbell-press", 3, "6-8"], ["chest-dips", 3, "6-8"], ["pec-deck-fly", 3, "12"]],
+      [["incline-dumbbell-press", 4, "8-12"], ["smith-machine-bench-press", 4, "8-10"], ["push-up", 3, "10-15"]],
+      [["incline-bench-press", 5, "12"], ["dumbbell-bench-press", 5, "12"], ["chest-dips", 5, "12"], ["pec-deck-fly", 5, "12"]],
+      [["pec-deck-fly", 3, "12-15"], ["smith-incline-press", 4, "8-12"], ["incline-dumbbell-press", 3, "8-12"], ["dumbbell-fly", 3, "12-15"]],
+      [["chest-press-machine", 3, "8-12"], ["decline-chest-press-machine", 3, "10-12"], ["incline-chest-press-machine", 3, "8-12"]],
+      [["incline-chest-press-machine", 4, "8-12"], ["wide-chest-press-plate-loaded", 4, "8-12"], ["chest-dips", 3, "10-15"], ["pec-deck-fly", 3, "12-15"]],
+      [["chest-press-machine", 3, "10-12"], ["incline-chest-press-machine", 2, "10-12"], ["pec-deck-fly", 2, "12-15"], ["push-up", 2, "8-12"]],
+      [["incline-dumbbell-fly", 4, "15-20"], ["incline-dumbbell-press", 4, "8-15"], ["chest-press-machine", 4, "8-15"], ["dumbbell-pullover", 4, "8-15"], ["chest-dips", 4, "10-15"]],
+      [["dumbbell-fly", 3, "10-15"], ["dumbbell-bench-press", 4, "8-12"], ["dumbbell-pullover", 3, "10-15"]],
+      [["push-up", 4, "10-15"], ["dumbbell-bench-press", 3, "12-15"], ["dumbbell-fly", 3, "12-15"], ["dumbbell-pullover", 3, "15"]],
+      [["barbell-bench-press", 5, "5-8"], ["incline-bench-press", 4, "8"], ["chest-dips", 4, ""], ["dumbbell-fly", 4, "12"], ["cable-crossover", 4, "15"]],
+      [["decline-chest-press-machine", 4, "8-12"], ["chest-press-machine", 4, "8-12"], ["cable-crossover", 4, "12-15"], ["dumbbell-pullover", 3, "12-15"]],
+    ],
     back: [
       [["chin-up", 5, "8-10"], ["barbell-row", 5, "8-10"], ["t-bar-row", 5, "8-10"], ["deadlift", 5, "8-10"]],
       [["close-grip-lat-pulldown", 3, "10"], ["seated-cable-row", 4, "10"], ["straight-arm-pulldown", 4, "12"], ["lat-pulldown", 4, "12"], ["back-extension", 4, "12-15"]],
@@ -441,6 +483,48 @@
       [["hammer-curl", 3, "7-9"], ["incline-dumbbell-curl", 3, "7-9"], ["barbell-curl", 3, "7-9"]],
       [["close-grip-bench-press", 4, "6-8"], ["overhead-triceps-extension", 3, "10-15"], ["triceps-pushdown", 3, "10-15"]],
     ],
+    abs: [
+      [["cable-crunch", 3, "12-15"], ["oblique-crunch-machine", 3, "24"], ["crunch", 3, "12"], ["lying-leg-raise", 3, "12-15"]],
+      [["russian-twist", 3, "24"], ["bicycle-crunch", 3, "24"], ["cable-crunch", 3, "12-15"], ["lying-leg-raise", 3, "8"]],
+      [["russian-twist", 3, "24"], ["ab-crunch-machine", 3, "8-12"], ["oblique-crunch-machine", 3, "16"], ["crunch", 3, "8-12"]],
+      [["hanging-leg-raise", 3, "15"], ["russian-twist", 4, "10"], ["decline-sit-up", 4, "12"], ["cable-crunch", 3, "15"]],
+      [["cable-crunch", 3, "10-12"], ["rotary-torso-machine", 3, "10-12"], ["lying-leg-raise", 3, "10-12"]],
+      [["crunch", 4, "12"], ["bicycle-crunch", 4, "20"], ["hanging-leg-raise", 4, "8-12"]],
+      [["lying-leg-raise", 4, "6"], ["cable-crunch", 4, "12"], ["rotary-torso-machine", 4, "12"]],
+      [["lying-leg-raise", 2, "10-12"], ["mountain-climber", 2, "10-12"], ["oblique-crunch-machine", 2, "10"], ["dead-bug", 2, "12-15"]],
+      [["plank", 2, ""], ["hanging-leg-raise", 2, "10-12"], ["ab-wheel-rollout", 2, "10-12"], ["mountain-climber", 2, "12-15"]],
+      [["cable-crunch", 3, "6-10"], ["hanging-leg-raise", 3, "6-10"], ["oblique-crunch-machine", 3, "6-10"]],
+      [["crunch", 3, "15"], ["captain-s-chair-leg-raise", 3, "15"], ["ab-wheel-rollout", 3, "15"], ["bicycle-crunch", 3, "15"]],
+      [["lying-leg-raise", 3, "15-20"], ["rotary-torso-machine", 3, "10-15"], ["crunch", 3, "10-15"]],
+      [["ab-wheel-rollout", 3, "8"], ["rotary-torso-machine", 3, "10"], ["hanging-leg-raise", 3, "12"], ["crunch", 2, "20"]],
+      [["ab-wheel-rollout", 2, ""], ["hanging-leg-raise", 2, "10"], ["oblique-crunch-machine", 2, "15"], ["plank", 2, ""]],
+      [["hanging-leg-raise", 3, "8-10"], ["rotary-torso-machine", 3, "8-10"], ["lying-leg-raise", 3, "8-10"], ["cable-crunch", 3, "8-10"]],
+      [["hanging-leg-raise", 3, "6"], ["cable-crunch", 3, "10-12"], ["rotary-torso-machine", 2, "10-12"], ["oblique-crunch-machine", 2, "10-12"]],
+      [["ab-wheel-rollout", 3, "5-10"], ["hanging-leg-raise", 3, "5-10"], ["rotary-torso-machine", 2, "8-12"], ["cable-crunch", 3, "8-12"]],
+      [["cable-crunch", 3, "10-15"], ["rotary-torso-machine", 3, "10-12"], ["russian-twist", 3, "15-20"], ["lying-leg-raise", 3, "12-15"]],
+      [["crunch", 3, "16"], ["bicycle-crunch", 3, "16"], ["captain-s-chair-leg-raise", 3, "14"], ["lying-leg-raise", 3, "16"], ["plank", 3, ""]],
+      [["crunch", 3, "30"], ["ab-wheel-rollout", 3, "20"], ["hanging-leg-raise", 3, "25"], ["decline-sit-up", 3, "20"], ["cable-crunch", 3, "30"]],
+      [["decline-sit-up", 2, "10"], ["captain-s-chair-leg-raise", 2, "10"], ["rotary-torso-machine", 2, "10"], ["crunch", 2, "10"], ["ab-wheel-rollout", 2, "10"]],
+      [["bicycle-crunch", 2, "12"], ["russian-twist", 2, "12"], ["rotary-torso-machine", 2, "12"], ["captain-s-chair-leg-raise", 2, "12"]],
+      [["hanging-leg-raise", 3, "20"], ["cable-crunch", 3, "20"], ["russian-twist", 3, "20"], ["plank", 3, "60"], ["decline-sit-up", 3, "30"]],
+      [["ab-wheel-rollout", 3, "10"], ["russian-twist", 3, "10"], ["crunch", 3, "10"], ["lying-leg-raise", 3, "10"]],
+      [["hanging-leg-raise", 3, "8-15"], ["cable-crunch", 3, "12-15"], ["plank", 3, "30-60"], ["ab-wheel-rollout", 3, "10-15"], ["lying-leg-raise", 3, "12-20"]],
+      [["plank", 4, "60"], ["crunch", 3, "15"], ["oblique-crunch-machine", 3, "12"], ["cable-crunch", 3, "10"], ["ab-wheel-rollout", 3, "10-12"], ["hanging-leg-raise", 1, ""]],
+      [["ab-wheel-rollout", 3, "10-12"], ["lying-leg-raise", 4, "12-15"], ["plank", 3, "60"]],
+      [["cable-crunch", 3, "10-15"], ["hanging-leg-raise", 3, "10-15"], ["dead-bug", 3, "10-15"], ["crunch", 2, ""]],
+      [["cable-crunch", 3, "12"], ["hanging-leg-raise", 3, "12-15"], ["plank", 3, "20"], ["side-plank", 2, ""]],
+      [["plank", 3, ""], ["side-plank", 2, "45"], ["crunch", 2, ""]],
+      [["rotary-torso-machine", 2, "10"], ["russian-twist", 2, "10"], ["bicycle-crunch", 2, "10"], ["plank", 2, "30"]],
+      [["toes-to-bar", 2, ""], ["plank", 2, ""], ["cable-crunch", 3, "8"]],
+      [["dead-bug", 2, "20"], ["rotary-torso-machine", 2, "20"], ["plank", 4, "30-60"]],
+      [["side-plank", 3, "30"], ["dead-bug", 3, "12"], ["plank", 3, "20"]],
+      [["lying-leg-raise", 3, "12"], ["crunch", 3, "20"], ["plank", 3, "40"]],
+      [["crunch", 3, "15"], ["lying-leg-raise", 3, "12"], ["plank", 3, "30"], ["bicycle-crunch", 3, "20"]],
+      [["crunch", 3, "20"], ["oblique-crunch-machine", 2, "20"], ["lying-leg-raise", 3, "10"]],
+      [["plank", 2, "10-20"], ["dead-bug", 2, "14"], ["oblique-crunch-machine", 2, "12-20"]],
+      [["crunch", 3, "10"], ["lying-leg-raise", 5, "15"], ["bicycle-crunch", 5, "15"], ["plank", 5, "30"], ["oblique-crunch-machine", 5, "15"]],
+      [["crunch", 3, "8-20"], ["lying-leg-raise", 3, "10-15"], ["plank", 3, "30"]],
+    ],
   };
   // <<< collected routines
 
@@ -508,7 +592,7 @@
   }
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '2.3.1';
+  const APP_VERSION = '2.3.2';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -1235,8 +1319,11 @@
     const yearCount = Object.entries(state.records).filter(([k, a]) => k.startsWith(yearPrefix) && k <= tk && a.length).length;
     const badgeText = `${yearCount}/${daysInYear(t.getFullYear())}`;
     const KR = '"Pretendard Variable", sans-serif';
+    // The day's logged exercises: top set and how many sets, shown above the headline.
+    const logged = (state.logs[tk] || []).map(e => ({ ex: exById(e.ex), sets: e.sets })).filter(e => e.ex);
+    const lifts = logged.map(({ ex, sets }) => [shortName(ex.name), setText(ex.kind, bestSet(ex, [{ sets }])) + (sets.length > 1 ? ` · ${sets.length}세트` : '')]);
 
-    await ensurePhotoFonts(headline + dateLine + badgeText);
+    await ensurePhotoFonts(headline + dateLine + badgeText + lifts.flat().join(''));
 
     let W = 1080;
     let H = 1920;
@@ -1305,6 +1392,43 @@
     for (let i = lines.length - 1; i >= 0; i--) {
       ctx.fillText(lines[i], m, y);
       y -= size * 0.9;
+    }
+
+    // Above it: every exercise, name in white and the top set in volt. Many exercises
+    // get smaller type, then two columns, so the block stays under ~40% of the photo.
+    if (lifts.length) {
+      const base = y - 1.4 * u;
+      const room = Math.min(base - (top + 7.6 * u + 6 * u), H * 0.4);
+      let cols = 1;
+      let rows = lifts.length;
+      let fs = 3.8 * u;
+      const fits = () => rows * fs * 1.45 <= room;
+      while (!fits() && fs > 2.8 * u) fs -= 0.1 * u;
+      if (!fits() && lifts.length > 1) {
+        cols = 2;
+        rows = Math.ceil(lifts.length / 2);
+        fs = 3.4 * u;
+        while (!fits() && fs > 2.2 * u) fs -= 0.1 * u;
+      }
+      const colW = textMaxW / cols;
+      lifts.forEach(([name, best], i) => {
+        const col = cols === 2 ? Math.floor(i / rows) : 0;
+        const row = cols === 2 ? i % rows : i;
+        const x0 = m + col * colW;
+        const ly = base - (rows - 1 - row) * fs * 1.45;
+        ctx.font = `700 ${fs}px ${KR}`;
+        ctx.fillStyle = '#FFFFFF';
+        let label = name;
+        while (label.length > 1 && ctx.measureText(label).width > colW * 0.58) label = label.slice(0, -1);
+        if (label !== name) label = `${label.trimEnd()}…`;
+        ctx.fillText(label, x0, ly);
+        if (best) {
+          const x = x0 + ctx.measureText(label).width + 1.6 * u;
+          ctx.font = `italic 800 ${fs * 1.12}px "Barlow Condensed", ${KR}`;
+          ctx.fillStyle = VOLT;
+          ctx.fillText(best, x, ly);
+        }
+      });
     }
 
     return canvasToJpeg(canvas);
