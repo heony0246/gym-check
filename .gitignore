@@ -3,3 +3,5 @@
 .claude/
 pic/
 pic2/
+worker/node_modules/
+worker/.wrangler/

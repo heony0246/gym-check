@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gymchek-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gymchek-db",
+      "database_id": "5a2b9cca-2b5e-4659-8b73-3291e020255b",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      // 오운완 photos (R2: 10 GB free, then cheap per GB).
+      "binding": "IMAGES",
+      "bucket_name": "gymchek-images"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://heony0246.github.io,http://localhost:5391,http://127.0.0.1:5391"
+  }
+}

@@ -27,6 +27,7 @@
       <section class="view" id="view-today" aria-label="오늘"></section>
       <section class="view" id="view-calendar" aria-label="달력" hidden></section>
       <section class="view" id="view-stats" aria-label="통계" hidden></section>
+      <section class="view" id="view-social" aria-label="피드" hidden></section>
       <section class="view" id="view-settings" aria-label="설정" hidden></section>
     </main>
 
@@ -42,6 +43,10 @@
       <button class="tab" data-action="tab" data-tab="stats">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20v-7M12 20V5M19 20v-10"/></svg>
         <span>기록</span>
+      </button>
+      <button class="tab" data-action="tab" data-tab="social">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.3a4.5 4.5 0 0 1 5 5.2"/></svg>
+        <span>피드</span>
       </button>
       <button class="tab" data-action="tab" data-tab="settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
@@ -75,7 +80,10 @@
       <p class="pe-loading" id="photo-loading">사진 만드는 중…</p>
       <img id="photo-preview" alt="오운완 사진 미리보기" hidden>
     </div>
-    <div class="pe-stickers" id="photo-stickers" role="group" aria-label="캐릭터 고르기"></div>
+    <label class="pe-crew" id="photo-crew-row" hidden>
+      <input type="checkbox" id="photo-crew">
+      <span>피드에도 올리기</span>
+    </label>
     <div class="pe-actions">
       <button class="btn" data-action="photo-retake">다시 고르기</button>
       <button class="btn primary" data-action="photo-save" id="photo-save" disabled>저장 · 공유</button>
