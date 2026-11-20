@@ -190,6 +190,311 @@
   };
   const EXERCISE_MAP = new Map(EXERCISES.map(([id, name, part, equip, kind]) => [id, { id, name, part, equip, kind }]));
 
+  // ---------- recommended routines ----------
+  // Each part has slots in workout order (big compound lift first, isolation last).
+  // A slot is [sets, reps, candidates]; a candidate is an exercise id, or
+  // [id, sets, reps, first] to override (first: goes to the front, e.g. deadlifts).
+  // Reps are 'low-high'; '' means as many as you can; time for planks/cardio.
+  const ROUTINE_SLOTS = {
+    chest: [
+      [4, '6-10', ['barbell-bench-press', 'barbell-bench-press', 'dumbbell-bench-press', 'smith-machine-bench-press', 'chest-press-machine']],
+      [3, '8-12', ['incline-dumbbell-press', 'incline-bench-press', 'smith-incline-press', 'incline-chest-press-machine']],
+      [3, '10-12', ['chest-press-machine', 'wide-chest-press-plate-loaded', 'decline-chest-press-machine', 'dumbbell-bench-press', 'decline-bench-press', ['chest-dips', 3, '']]],
+      [3, '12-15', ['pec-deck-fly', 'dumbbell-fly', 'incline-dumbbell-fly', 'cable-crossover', 'low-to-high-cable-fly']],
+      [3, '12-15', [['push-up', 3, ''], ['chest-dips', 3, ''], 'cable-crossover', 'dumbbell-pullover']],
+    ],
+    back: [
+      [4, '8-12', ['lat-pulldown', 'lat-pulldown', ['pull-up', 4, ''], ['assisted-pull-up', 4, '8-12'], 'close-grip-lat-pulldown', ['chin-up', 4, '']]],
+      [4, '8-10', ['barbell-row', 't-bar-row', 'pendlay-row', 'iso-lateral-row-mid-row', 'iso-lateral-d-y-row', 'chest-supported-row']],
+      [3, '10-12', ['seated-cable-row', 'seated-row-machine', 'low-row-machine', 'high-row-machine']],
+      [3, '10-15', ['one-arm-dumbbell-row', 'straight-arm-pulldown', 'pullover-machine', 'high-row-machine']],
+      [3, '12-15', [['back-extension', 3, '12-15'], 'lower-back-extension-machine', ['deadlift', 3, '5', true], ['rack-pull', 3, '5', true]]],
+    ],
+    legs: [
+      [4, '6-10', ['barbell-back-squat', 'barbell-back-squat', 'front-squat', 'smith-machine-squat', 'hack-squat', 'v-squat-pendulum-squat', 'squat-machine', 'belt-squat']],
+      [4, '10-12', ['leg-press', 'leg-press', 'seated-leg-press', ['bulgarian-split-squat', 3, '8-10'], ['lunge', 3, '10-12']]],
+      [3, '8-10', ['romanian-deadlift', 'stiff-leg-deadlift', 'hip-thrust', ['glute-ham-raise', 3, '']]],
+      [3, '12-15', ['leg-extension', ['goblet-squat', 3, '12-15'], ['step-up', 3, '10-12']]],
+      [3, '12-15', ['lying-leg-curl', 'seated-leg-curl', 'kneeling-leg-curl', 'standing-leg-curl']],
+      [4, '15-20', ['calf-raise', 'donkey-calf-raise', ['hip-abduction', 3, '15-20'], ['hip-adduction', 3, '15-20'], ['glute-kickback-machine', 3, '12-15']]],
+    ],
+    shoulders: [
+      [4, '8-12', ['overhead-press', 'dumbbell-shoulder-press', 'shoulder-press-machine', 'smith-shoulder-press', 'arnold-press', 'viking-press']],
+      [4, '12-15', ['lateral-raise', 'cable-lateral-raise', 'lateral-raise-machine']],
+      [3, '12-15', ['reverse-pec-deck', 'rear-delt-raise', 'face-pull']],
+      [3, '10-12', ['arnold-press', 'front-raise', 'upright-row', 'iso-lateral-super-incline-press', 'shoulder-press-machine']],
+      [3, '10-15', ['shrug', 'face-pull', 'upright-row']],
+    ],
+    arms: [
+      [3, '8-12', ['barbell-curl', 'ez-bar-curl', 'dumbbell-curl', 'preacher-curl', 'biceps-curl-machine']],
+      [3, '8-12', ['close-grip-bench-press', 'skull-crusher', ['triceps-dips', 3, ''], 'seated-dip-machine', 'triceps-extension-machine']],
+      [3, '10-12', ['hammer-curl', 'incline-dumbbell-curl', 'cable-curl', 'concentration-curl', 'spider-curl']],
+      [3, '12-15', ['triceps-pushdown', 'overhead-triceps-extension', 'triceps-kickback', ['bench-dips', 3, '']]],
+      [3, '12-15', ['reverse-curl', 'wrist-curl', 'hammer-curl', 'cable-curl']],
+    ],
+    abs: [
+      [3, '10-15', ['hanging-leg-raise', 'captain-s-chair-leg-raise', 'lying-leg-raise', 'toes-to-bar']],
+      [3, '12-15', ['cable-crunch', 'ab-crunch-machine', 'decline-sit-up', 'crunch']],
+      [3, '45', ['plank', 'side-plank', ['dead-bug', 3, '12'], ['ab-wheel-rollout', 3, '10']]],
+      [3, '15-20', ['russian-twist', 'rotary-torso-machine', 'oblique-crunch-machine', 'bicycle-crunch']],
+    ],
+    cardio: [
+      [1, '20-30', ['treadmill', 'stationary-recumbent-bike', 'elliptical', 'arc-trainer', 'rowing-machine']],
+      [1, '10-15', ['stair-climber-stepmill', 'stepper', 'air-bike-assault-bike', 'jump-rope', 'skierg', 'jacob-s-ladder']],
+    ],
+    full: [
+      [3, '5', ['power-clean', 'thruster']],
+      [3, '15', ['kettlebell-swing', 'wall-ball']],
+      [3, '40', ['farmer-s-walk', ['sled-push', 3, '6']]],
+    ],
+  };
+
+  // Routine 1 of each part: the classic order. The other 9 are drawn from the slots.
+  const CLASSIC_ROUTINES = {
+    chest: [['barbell-bench-press', 4, '8-10'], ['incline-dumbbell-press', 3, '10-12'], ['chest-press-machine', 3, '10-12'],
+      ['pec-deck-fly', 3, '12-15'], ['cable-crossover', 3, '12-15'], ['chest-dips', 3, '']],
+    back: [['deadlift', 3, '5'], ['lat-pulldown', 4, '10-12'], ['barbell-row', 4, '8-10'],
+      ['seated-cable-row', 3, '10-12'], ['one-arm-dumbbell-row', 3, '10-12'], ['pull-up', 3, '']],
+    legs: [['barbell-back-squat', 4, '8-10'], ['leg-press', 4, '10-12'], ['romanian-deadlift', 3, '8-10'],
+      ['leg-extension', 3, '12-15'], ['lying-leg-curl', 3, '12-15'], ['calf-raise', 4, '15-20']],
+    shoulders: [['dumbbell-shoulder-press', 4, '8-12'], ['lateral-raise', 4, '12-15'], ['shoulder-press-machine', 3, '10-12'],
+      ['reverse-pec-deck', 3, '12-15'], ['face-pull', 3, '12-15'], ['shrug', 3, '10-12']],
+    arms: [['barbell-curl', 3, '10-12'], ['triceps-pushdown', 3, '12-15'], ['hammer-curl', 3, '10-12'],
+      ['skull-crusher', 3, '10-12'], ['incline-dumbbell-curl', 3, '10-12'], ['overhead-triceps-extension', 3, '12-15']],
+    abs: [['hanging-leg-raise', 3, '10-15'], ['cable-crunch', 3, '12-15'], ['plank', 3, '45'],
+      ['ab-wheel-rollout', 3, '10'], ['russian-twist', 3, '20']],
+    cardio: [['treadmill', 1, '20-30'], ['stair-climber-stepmill', 1, '15-20']],
+  };
+
+  // >>> collected routines
+  // Real routines collected from fitness sites (see routine-sources.md), per part.
+  // [exercise id, sets, reps]; reps '' = as many as you can.
+  const COLLECTED_ROUTINES = {
+    back: [
+      [["chin-up", 5, "8-10"], ["barbell-row", 5, "8-10"], ["t-bar-row", 5, "8-10"], ["deadlift", 5, "8-10"]],
+      [["close-grip-lat-pulldown", 3, "10"], ["seated-cable-row", 4, "10"], ["straight-arm-pulldown", 4, "12"], ["lat-pulldown", 4, "12"], ["back-extension", 4, "12-15"]],
+      [["lat-pulldown", 4, "10"], ["chest-supported-row", 4, "10"], ["close-grip-lat-pulldown", 4, "10"], ["seated-cable-row", 4, "12"], ["seated-row-machine", 4, "12"], ["lower-back-extension-machine", 4, "15"]],
+      [["chin-up", 6, "10-12"], ["barbell-row", 4, "10-12"], ["seated-cable-row", 4, "12"], ["back-extension", 4, "10-12"]],
+      [["deadlift", 5, "5"], ["pull-up", 4, ""], ["barbell-row", 4, "8"], ["back-extension", 3, "15"]],
+      [["chin-up", 2, "6-8"], ["barbell-row", 2, "10-12"], ["deadlift", 2, "8-10"]],
+      [["t-bar-row", 4, "6-8"], ["barbell-row", 4, "8-10"], ["lat-pulldown", 4, "10-12"], ["chin-up", 3, "6-8"], ["seated-cable-row", 3, "8-10"]],
+      [["deadlift", 5, "5"], ["pull-up", 4, "8"], ["seated-cable-row", 3, "10"], ["pullover-machine", 3, "12"]],
+      [["rack-pull", 3, "5"], ["pull-up", 4, "10-12"], ["barbell-row", 4, "6-8"], ["one-arm-dumbbell-row", 3, "10"], ["seated-cable-row", 3, "12-15"], ["pullover-machine", 2, "10-15"]],
+      [["deadlift", 3, "5"], ["pull-up", 3, "8"], ["one-arm-dumbbell-row", 3, "10"], ["back-extension", 3, "12"]],
+      [["deadlift", 3, "6"], ["barbell-row", 3, "6"], ["assisted-pull-up", 2, "10"]],
+      [["deadlift", 3, "6-8"], ["barbell-row", 3, "8-10"], ["lat-pulldown", 3, "8-12"], ["straight-arm-pulldown", 2, "12-15"]],
+      [["seated-cable-row", 4, "12-15"], ["one-arm-dumbbell-row", 4, "10-15"], ["pull-up", 3, "12-15"], ["back-extension", 2, ""]],
+      [["pendlay-row", 4, "8"], ["one-arm-dumbbell-row", 3, "12"], ["straight-arm-pulldown", 3, "12"], ["lat-pulldown", 3, "12"]],
+      [["pull-up", 5, "5"], ["chest-supported-row", 4, "8-10"], ["lat-pulldown", 4, "8-10"], ["seated-cable-row", 4, "12-15"]],
+      [["straight-arm-pulldown", 3, "10-12"], ["high-row-machine", 3, "10-12"], ["barbell-row", 3, "10-12"], ["assisted-pull-up", 3, "10-12"], ["t-bar-row", 3, "10-12"], ["one-arm-dumbbell-row", 3, "10-12"]],
+      [["rack-pull", 4, "4"], ["chin-up", 4, "6"], ["t-bar-row", 4, "8"], ["one-arm-dumbbell-row", 2, "15"], ["straight-arm-pulldown", 3, "10-12"], ["back-extension", 3, "10-12"]],
+      [["deadlift", 3, "5"], ["chin-up", 4, "6"], ["t-bar-row", 4, "8-12"], ["lat-pulldown", 3, "8-12"], ["straight-arm-pulldown", 2, "12"], ["back-extension", 3, "12"]],
+      [["rack-pull", 4, "4"], ["pull-up", 3, "8"], ["seated-cable-row", 3, "8-12"], ["close-grip-lat-pulldown", 3, "8-12"], ["chest-supported-row", 3, "8-12"], ["back-extension", 3, "12"]],
+      [["lat-pulldown", 5, "10-15"], ["t-bar-row", 5, "8-15"], ["one-arm-dumbbell-row", 4, "12-15"], ["seated-row-machine", 4, "10-12"], ["seated-cable-row", 3, "25"], ["straight-arm-pulldown", 3, "12-15"]],
+      [["straight-arm-pulldown", 6, "15"], ["pull-up", 5, ""], ["t-bar-row", 5, "10-15"], ["lat-pulldown", 5, "8-15"], ["one-arm-dumbbell-row", 4, "15-20"], ["seated-cable-row", 4, "20-30"], ["back-extension", 4, "30"]],
+      [["lat-pulldown", 3, "12"], ["seated-cable-row", 3, "12"], ["deadlift", 3, "12"]],
+      [["deadlift", 4, "8"], ["seated-cable-row", 4, "10-12"], ["lat-pulldown", 4, "10-12"], ["barbell-row", 4, "10-12"], ["t-bar-row", 4, "10-12"], ["one-arm-dumbbell-row", 4, "10-12"], ["pull-up", 4, "10"]],
+      [["lat-pulldown", 3, "12-16"], ["close-grip-lat-pulldown", 3, "12-16"], ["seated-cable-row", 3, "10"], ["one-arm-dumbbell-row", 3, "10"], ["barbell-row", 3, "10"]],
+      [["pull-up", 3, "5-8"], ["deadlift", 5, "5"], ["pendlay-row", 3, "6"], ["lat-pulldown", 2, "12-15"]],
+      [["straight-arm-pulldown", 3, "10-15"], ["lat-pulldown", 3, "10-15"], ["pullover-machine", 3, "8-10"], ["barbell-row", 3, "8-10"], ["seated-row-machine", 3, "10-15"]],
+      [["lat-pulldown", 5, "10"], ["chest-supported-row", 3, "10-12"], ["pullover-machine", 2, "10-12"]],
+      [["lat-pulldown", 5, "15-20"], ["seated-cable-row", 4, "15-20"], ["close-grip-lat-pulldown", 3, "15-20"], ["t-bar-row", 4, "10-15"], ["rack-pull", 4, "10"]],
+      [["lat-pulldown", 4, "15-20"], ["t-bar-row", 4, "15-20"], ["one-arm-dumbbell-row", 4, "15-20"], ["seated-cable-row", 4, "15-20"], ["pull-up", 4, "15-20"]],
+      [["barbell-row", 3, "6-8"], ["seated-cable-row", 3, "8-12"], ["close-grip-lat-pulldown", 3, "12"], ["back-extension", 3, "12"]],
+      [["one-arm-dumbbell-row", 3, "8-12"], ["barbell-row", 3, "6-8"], ["lat-pulldown", 3, "15"], ["good-morning", 3, "12-15"]],
+      [["lat-pulldown", 4, "10-15"], ["seated-cable-row", 4, "8-12"], ["barbell-row", 4, "10-12"], ["back-extension", 4, "12"]],
+      [["close-grip-lat-pulldown", 4, "8-12"], ["pull-up", 4, "8-12"], ["barbell-row", 4, "6-15"], ["straight-arm-pulldown", 4, "12-25"], ["back-extension", 4, "12-15"]],
+      [["barbell-row", 4, "6-10"], ["lat-pulldown", 3, "8-10"], ["seated-cable-row", 3, "10"], ["high-row-machine", 3, "10-12"], ["pullover-machine", 3, "12-15"]],
+      [["close-grip-lat-pulldown", 4, "8-12"], ["t-bar-row", 4, "6-10"], ["seated-cable-row", 3, "10-12"], ["straight-arm-pulldown", 3, "12-15"]],
+      [["lat-pulldown", 3, "8-10"], ["barbell-row", 3, "8-10"], ["deadlift", 2, "8-10"]],
+      [["pull-up", 3, "6-10"], ["one-arm-dumbbell-row", 3, "10-12"], ["chest-supported-row", 2, "12"], ["back-extension", 2, "12-15"]],
+      [["deadlift", 5, "10"], ["lat-pulldown", 3, "10"], ["t-bar-row", 3, "12"], ["chest-supported-row", 3, "10"], ["pull-up", 3, ""]],
+      [["lat-pulldown", 2, "10-15"], ["straight-arm-pulldown", 2, "12-15"], ["high-row-machine", 2, "12-15"], ["iso-lateral-row-mid-row", 2, "12-15"]],
+      [["chest-supported-row", 3, "15"], ["lat-pulldown", 3, "15"], ["straight-arm-pulldown", 3, "15"], ["low-row-machine", 2, "15-20"], ["high-row-machine", 2, "15-20"], ["seated-cable-row", 1, "10-12"]],
+    ],
+    legs: [
+      [["barbell-back-squat", 3, "6"], ["romanian-deadlift", 3, "8"], ["bulgarian-split-squat", 3, "10"], ["seated-leg-curl", 3, "12"], ["leg-extension", 2, "12"], ["calf-raise", 3, "15"]],
+      [["front-squat", 4, "6"], ["romanian-deadlift", 3, "8"], ["leg-press", 3, "10"], ["reverse-hyperextension", 3, "10"], ["lunge", 2, "12"], ["calf-raise", 6, "12-15"]],
+      [["goblet-squat", 3, "12-15"], ["romanian-deadlift", 3, "10"], ["hip-thrust", 4, "8-10"], ["hip-abduction", 2, "15-20"], ["sumo-deadlift", 3, "10-12"]],
+      [["smith-machine-squat", 4, "8-10"], ["lying-leg-curl", 3, "10-12"], ["hack-squat", 3, "8-12"], ["leg-extension", 3, "12-15"], ["standing-abductor", 2, "12-15"], ["hip-adduction", 2, "12-15"], ["cable-glute-kickback", 2, "12-15"], ["leg-press", 3, "12"], ["calf-raise", 3, "10-12"]],
+      [["calf-raise", 3, "15"], ["standing-leg-curl", 3, "10-20"], ["lying-leg-curl", 3, "12"], ["front-squat", 4, "6-12"], ["hack-squat", 3, "10-20"], ["leg-extension", 3, "20"]],
+      [["leg-extension", 4, "8-12"], ["front-squat", 4, "10-12"], ["leg-press", 3, "10-12"], ["hack-squat", 7, "5-7"], ["stiff-leg-deadlift", 4, "10-12"], ["lying-leg-curl", 4, "10-12"], ["seated-leg-curl", 7, "5-7"], ["calf-raise", 10, "15-20"]],
+      [["romanian-deadlift", 3, "10"], ["goblet-squat", 3, "10"], ["hack-squat", 3, "12"], ["cable-glute-kickback", 3, "10"], ["stiff-leg-deadlift", 3, "15"], ["hip-thrust", 6, "10"]],
+      [["barbell-back-squat", 10, "10"], ["lying-leg-curl", 10, "10"], ["lunge", 4, "8-10"], ["step-up", 3, "12"], ["leg-extension", 3, ""]],
+      [["leg-extension", 6, "20"], ["leg-press", 5, "28"], ["hack-squat", 4, "10"], ["squat-machine", 4, "15"], ["barbell-back-squat", 4, "10"], ["lying-leg-curl", 4, "15"], ["seated-leg-curl", 4, "15"]],
+      [["barbell-back-squat", 3, "12-20"], ["leg-extension", 4, "10"], ["lunge", 3, "10"]],
+      [["lying-leg-curl", 3, "8-12"], ["romanian-deadlift", 5, "5"], ["lunge", 3, "12"]],
+      [["leg-press", 3, "8-12"], ["barbell-back-squat", 5, "5"], ["hack-squat", 3, "12"], ["leg-extension", 3, "15"]],
+      [["barbell-back-squat", 2, "20"], ["leg-press", 5, "20"], ["hack-squat", 2, "20"], ["leg-extension", 5, "20"], ["stiff-leg-deadlift", 2, "20"], ["lying-leg-curl", 5, "20"], ["calf-raise", 6, "20"]],
+      [["leg-press", 3, "10-15"], ["leg-extension", 2, "10"], ["lying-leg-curl", 2, "10"], ["calf-raise", 2, "10-12"]],
+      [["hack-squat", 3, "10-15"], ["leg-press", 3, "15"], ["leg-extension", 3, "15"]],
+      [["hip-thrust", 6, "5"], ["romanian-deadlift", 6, "5"], ["calf-raise", 6, "12"]],
+      [["stiff-leg-deadlift", 3, "10-12"], ["seated-leg-curl", 3, "7-9"], ["standing-leg-curl", 3, "4-6"]],
+      [["barbell-back-squat", 6, "8-15"], ["stiff-leg-deadlift", 4, "12"], ["leg-press", 4, "8"], ["leg-extension", 4, "12"], ["lying-leg-curl", 4, "8"]],
+      [["goblet-squat", 3, "8-12"], ["lunge", 3, "8-12"], ["step-up", 3, "15-20"], ["bulgarian-split-squat", 3, "8-12"], ["stiff-leg-deadlift", 3, "10-12"], ["lying-leg-curl", 3, "10-15"]],
+      [["hip-thrust", 4, "8-12"], ["bulgarian-split-squat", 3, "8-10"], ["romanian-deadlift", 3, "10-12"], ["cable-glute-kickback", 3, "12-15"], ["hip-abduction", 2, "15-20"], ["glute-bridge", 1, ""]],
+      [["hip-thrust", 4, "8-12"], ["barbell-back-squat", 4, "6-10"], ["romanian-deadlift", 3, "8-12"], ["bulgarian-split-squat", 2, "8"], ["glute-bridge", 2, "12-15"]],
+      [["front-squat", 3, "6-8"], ["romanian-deadlift", 3, "4-8"], ["bulgarian-split-squat", 3, "12-15"], ["leg-extension", 3, "10"], ["lying-leg-curl", 3, "10"], ["calf-raise", 4, "15-20"]],
+      [["barbell-back-squat", 3, "4-6"], ["hack-squat", 3, "8-12"], ["glute-ham-raise", 3, "8-10"], ["lunge", 3, "15-20"], ["hip-thrust", 3, "8-12"], ["calf-raise", 3, "20"]],
+      [["barbell-back-squat", 5, "5"], ["leg-press", 4, "8"], ["leg-extension", 4, "8-12"], ["lying-leg-curl", 4, "8-12"]],
+      [["romanian-deadlift", 5, "5"], ["hack-squat", 4, "8-10"], ["lunge", 4, "8"], ["calf-raise", 4, "12"]],
+      [["seated-leg-curl", 3, "12-20"], ["lunge", 3, "30"], ["lying-leg-curl", 3, "10-12"], ["hip-thrust", 3, "15-25"], ["glute-bridge", 3, "20-30"]],
+      [["leg-press", 2, "10-12"], ["lying-leg-curl", 2, "10-15"], ["hip-thrust", 2, "10-12"], ["calf-raise", 2, "12-15"]],
+      [["barbell-back-squat", 3, "6-10"], ["romanian-deadlift", 3, "8-12"], ["lunge", 3, "8-12"], ["lying-leg-curl", 3, "10-15"], ["calf-raise", 3, "12-20"]],
+      [["leg-press", 3, "8-12"], ["goblet-squat", 3, "8-12"], ["lying-leg-curl", 3, "10-15"], ["calf-raise", 3, "12-20"]],
+      [["barbell-back-squat", 4, "5-8"], ["romanian-deadlift", 3, "6-10"], ["leg-press", 3, "10-15"], ["bulgarian-split-squat", 3, "8-12"], ["lying-leg-curl", 3, "10-15"], ["calf-raise", 4, "12-20"]],
+      [["goblet-squat", 3, "8"], ["step-up", 2, "10"], ["leg-extension", 1, "15"], ["lying-leg-curl", 1, "15"], ["calf-raise", 3, "10"]],
+      [["barbell-back-squat", 3, "6-8"], ["hip-thrust", 4, "8-12"], ["leg-press", 3, "12-15"], ["leg-extension", 3, "8-15"], ["lying-leg-curl", 3, "8-15"], ["calf-raise", 1, "60"]],
+      [["lunge", 2, "20"], ["front-squat", 4, "6-12"], ["hip-thrust", 4, "6-8"], ["romanian-deadlift", 4, "10-12"], ["leg-extension", 3, "8"], ["lying-leg-curl", 3, "8"], ["calf-raise", 4, "20"]],
+      [["leg-extension", 3, "15"], ["front-squat", 4, "6"], ["leg-press", 3, "6-12"], ["bulgarian-split-squat", 3, "12-15"], ["lying-leg-curl", 2, "8-10"], ["calf-raise", 2, "20"]],
+      [["romanian-deadlift", 4, "8"], ["leg-press", 3, "8"], ["hip-thrust", 3, "8-12"], ["lying-leg-curl", 3, "12"], ["glute-ham-raise", 2, "5"], ["leg-extension", 2, "15"]],
+      [["barbell-back-squat", 8, "5-20"], ["hack-squat", 5, "10-15"], ["leg-extension", 5, "10-15"], ["lying-leg-curl", 6, "10-15"], ["calf-raise", 6, "10-15"]],
+      [["goblet-squat", 3, "5-8"], ["lunge", 3, "8-12"], ["leg-extension", 3, "8-12"], ["lying-leg-curl", 3, "8-12"], ["calf-raise", 3, "8-12"]],
+      [["barbell-back-squat", 4, "5-12"], ["bulgarian-split-squat", 3, "10-15"], ["leg-extension", 3, "10-15"], ["lying-leg-curl", 3, "10-15"], ["calf-raise", 3, "10-15"]],
+      [["leg-press", 4, "15-20"], ["romanian-deadlift", 4, "15-20"], ["bulgarian-split-squat", 4, "15-20"], ["seated-leg-curl", 4, "15-20"], ["lunge", 2, ""]],
+      [["stiff-leg-deadlift", 3, "15-30"], ["step-up", 3, "30-40"], ["goblet-squat", 3, "15-30"], ["hip-abduction", 3, "15-30"]],
+    ],
+    shoulders: [
+      [["overhead-press", 3, "5"], ["upright-row", 3, "10"], ["lateral-raise", 3, "10"], ["front-raise", 3, "10"], ["rear-delt-raise", 3, "12"]],
+      [["overhead-press", 4, "6-8"], ["upright-row", 3, "8-10"], ["front-raise", 3, "10-12"], ["shrug", 3, "12-15"]],
+      [["dumbbell-shoulder-press", 3, "6"], ["lateral-raise", 3, "12"], ["face-pull", 3, "15"]],
+      [["overhead-press", 3, "6"], ["lateral-raise", 3, "12"], ["rear-delt-raise", 3, "15"]],
+      [["overhead-press", 3, "3"], ["dumbbell-shoulder-press", 3, "6-8"], ["lateral-raise", 3, "12-15"], ["face-pull", 2, "20"]],
+      [["arnold-press", 3, "8-10"], ["lateral-raise", 2, "10-12"], ["cable-lateral-raise", 2, "12-15"], ["rear-delt-raise", 2, "15-20"], ["face-pull", 2, "20"]],
+      [["dumbbell-shoulder-press", 3, "8"], ["lateral-raise", 3, "15"], ["shrug", 2, "20"]],
+      [["dumbbell-shoulder-press", 3, "8-10"], ["lateral-raise", 3, "15"], ["rear-delt-raise", 3, "15"], ["upright-row", 3, "12"], ["front-raise", 3, "12"]],
+      [["shoulder-press-machine", 4, "12-15"], ["cable-lateral-raise", 4, "12-15"], ["rear-delt-raise", 4, "12-15"], ["reverse-pec-deck", 4, "12-15"]],
+      [["dumbbell-shoulder-press", 4, "6-10"], ["upright-row", 3, "8-10"], ["rear-delt-raise", 3, "8-12"], ["lateral-raise", 3, "8-12"], ["front-raise", 3, "8-12"]],
+      [["overhead-press", 4, "8-12"], ["lateral-raise", 3, "10-12"], ["rear-delt-raise", 3, "10-12"], ["front-raise", 3, "10-12"], ["upright-row", 3, "10-12"], ["reverse-pec-deck", 3, "10-12"]],
+      [["shoulder-press-machine", 3, "12"], ["lateral-raise", 3, "12"], ["front-raise", 3, "12"], ["reverse-pec-deck", 3, "12"]],
+      [["overhead-press", 4, "8"], ["upright-row", 3, "8-10"], ["lateral-raise", 6, "10-12"]],
+      [["overhead-press", 4, "8-12"], ["arnold-press", 4, "8-12"], ["front-raise", 6, "10-12"]],
+      [["cable-lateral-raise", 4, "8-10"], ["front-raise", 3, "10"], ["reverse-pec-deck", 3, "10"], ["shoulder-press-machine", 3, "8-10"], ["upright-row", 3, "10-12"]],
+      [["overhead-press", 4, "6-10"], ["lateral-raise", 3, ""], ["dumbbell-shoulder-press", 3, ""], ["face-pull", 3, "15"]],
+      [["overhead-press", 4, "6-10"], ["lateral-raise", 4, "6-15"], ["reverse-pec-deck", 4, "6-15"], ["face-pull", 4, "8-12"]],
+      [["overhead-press", 4, "4"], ["shrug", 4, "4"], ["dumbbell-shoulder-press", 4, "6-8"], ["upright-row", 3, "8-10"], ["cable-lateral-raise", 3, "8-12"], ["face-pull", 3, "10-12"]],
+      [["shrug", 3, "8-12"], ["upright-row", 3, "8-12"], ["dumbbell-shoulder-press", 3, "8-12"], ["lateral-raise", 3, "8-12"], ["front-raise", 3, "8-12"]],
+      [["lateral-raise", 5, "10-20"], ["face-pull", 3, "10-20"], ["upright-row", 3, "10-20"]],
+      [["dumbbell-shoulder-press", 4, "10-12"], ["front-raise", 4, "10-12"], ["lateral-raise", 4, "10-12"], ["reverse-pec-deck", 4, "10-12"]],
+      [["dumbbell-shoulder-press", 6, "6-12"], ["lateral-raise", 6, "8-15"], ["rear-delt-raise", 5, "8-12"], ["front-raise", 5, "10-12"]],
+      [["smith-shoulder-press", 5, "8-15"], ["lateral-raise", 5, "8-15"], ["rear-delt-raise", 4, "10-12"], ["front-raise", 4, "10-12"], ["cable-lateral-raise", 4, "10-12"]],
+      [["dumbbell-shoulder-press", 5, "8-20"], ["front-raise", 5, "12"], ["shoulder-press-machine", 5, "8-20"], ["upright-row", 5, "12"], ["lateral-raise", 5, "8-20"], ["reverse-pec-deck", 5, "10"], ["rear-delt-raise", 5, "8-20"], ["lateral-raise-machine", 5, "15"]],
+      [["overhead-press", 3, "6-8"], ["lateral-raise", 3, "12"], ["front-raise", 3, "12"], ["rear-delt-raise", 3, "15"]],
+      [["dumbbell-shoulder-press", 4, "8-10"], ["lateral-raise", 3, "12"], ["rear-delt-raise", 3, "12"]],
+      [["shoulder-press-machine", 4, "10-12"], ["cable-lateral-raise", 4, "10-12"], ["front-raise", 4, "10-12"], ["reverse-pec-deck", 4, "12"]],
+      [["cable-lateral-raise", 3, "10-20"], ["arnold-press", 3, "6-12"], ["rear-delt-raise", 3, "12"]],
+      [["overhead-press", 4, "8-12"], ["lateral-raise", 4, "8-12"], ["smith-shoulder-press", 4, "8-12"], ["rear-delt-raise", 4, "8-12"], ["upright-row", 4, "8-12"]],
+      [["lateral-raise", 5, "15-30"], ["shoulder-press-machine", 5, "15-30"], ["reverse-pec-deck", 5, "15-30"]],
+      [["dumbbell-shoulder-press", 5, "15"], ["front-raise", 5, "15"], ["lateral-raise", 5, "15"], ["rear-delt-raise", 5, "15"]],
+      [["dumbbell-shoulder-press", 3, "10-12"], ["lateral-raise", 3, "10-12"], ["front-raise", 3, "10-12"], ["rear-delt-raise", 3, "10-12"]],
+      [["shoulder-press-machine", 3, "8-12"], ["lateral-raise", 3, "12-15"], ["reverse-pec-deck", 3, "12-15"]],
+      [["overhead-press", 3, "10-12"], ["lateral-raise", 3, "10-12"], ["rear-delt-raise", 3, "10-12"], ["shrug", 3, "10-12"]],
+      [["overhead-press", 4, "6-12"], ["lateral-raise", 4, "10-15"], ["rear-delt-raise", 4, "10-15"], ["upright-row", 4, "10-15"], ["front-raise", 4, "10-15"], ["shrug", 3, "10-15"]],
+      [["dumbbell-shoulder-press", 3, "6-8"], ["lateral-raise", 3, "10"], ["reverse-pec-deck", 2, "10"], ["shrug", 3, "6-8"]],
+      [["overhead-press", 4, "5"], ["upright-row", 3, "15-20"], ["face-pull", 5, "10-15"], ["shrug", 3, "8"]],
+      [["overhead-press", 6, "2-5"], ["lateral-raise", 4, "6-9"], ["rear-delt-raise", 3, "10-13"], ["face-pull", 3, "10-13"]],
+      [["overhead-press", 6, "2-5"], ["lateral-raise", 4, "6-9"], ["lateral-raise-machine", 3, "10-13"], ["reverse-pec-deck", 3, "10-13"]],
+      [["overhead-press", 5, "5"], ["lateral-raise", 4, "10"], ["upright-row", 3, "15"], ["face-pull", 3, "15"], ["shoulder-press-machine", 4, "12"], ["shrug", 3, "15"]],
+    ],
+    arms: [
+      [["barbell-curl", 3, "8"], ["dumbbell-curl", 3, "10"], ["hammer-curl", 3, "10"], ["skull-crusher", 3, "8"], ["triceps-kickback", 3, "10"], ["overhead-triceps-extension", 3, "10"]],
+      [["close-grip-bench-press", 3, "4-6"], ["overhead-triceps-extension", 2, "8-12"], ["barbell-curl", 3, "4-6"], ["dumbbell-curl", 2, "8-12"], ["cable-curl", 3, "15"], ["reverse-wrist-curl", 3, "25"]],
+      [["bench-dips", 3, "6-8"], ["skull-crusher", 2, "8-12"], ["overhead-triceps-extension", 2, "12"], ["incline-dumbbell-curl", 3, "4-6"], ["spider-curl", 2, "8-12"], ["cable-curl", 3, "15"], ["wrist-curl", 2, "50"]],
+      [["ez-bar-curl", 3, "6-8"], ["hammer-curl", 3, "12"], ["concentration-curl", 3, "15"], ["seated-dip-machine", 3, "6-8"], ["skull-crusher", 3, "8-12"], ["overhead-triceps-extension", 3, "15"], ["wrist-curl", 2, "50"]],
+      [["close-grip-bench-press", 3, "6-8"], ["hammer-curl", 3, "12"], ["biceps-curl-machine", 2, "15"], ["skull-crusher", 3, "6-8"], ["overhead-triceps-extension", 3, "8-12"], ["triceps-pushdown", 3, "15"]],
+      [["barbell-curl", 3, "4-6"], ["close-grip-bench-press", 3, "6-8"], ["incline-dumbbell-curl", 2, "8-12"], ["skull-crusher", 2, "8-12"], ["biceps-curl-machine", 2, "15"], ["triceps-pushdown", 2, "15"], ["wrist-curl", 2, "50"], ["reverse-wrist-curl", 2, "50"]],
+      [["ez-bar-curl", 2, "8-10"], ["skull-crusher", 2, "8-10"], ["cable-curl", 2, "12-15"], ["triceps-pushdown", 2, "12-15"]],
+      [["barbell-curl", 3, "6-8"], ["incline-dumbbell-curl", 3, "8-10"], ["concentration-curl", 3, "12-15"], ["close-grip-bench-press", 3, "6-8"], ["overhead-triceps-extension", 3, "8-10"], ["triceps-pushdown", 3, "12-15"], ["wrist-curl", 2, "10-12"], ["reverse-wrist-curl", 2, "10-12"]],
+      [["cable-curl", 3, "10-12"], ["triceps-pushdown", 3, "10-12"], ["reverse-curl", 3, "12-15"], ["triceps-kickback", 2, "15-20"]],
+      [["triceps-dips", 4, "4-6"], ["hammer-curl", 3, "6-8"], ["close-grip-bench-press", 3, "6-8"]],
+      [["ez-bar-curl", 4, "8-12"], ["dumbbell-curl", 4, "8-12"], ["hammer-curl", 4, "8-12"], ["biceps-curl-machine", 3, "8-12"], ["triceps-pushdown", 4, "15-20"], ["overhead-triceps-extension", 4, "15"], ["skull-crusher", 3, "12-15"]],
+      [["biceps-curl-machine", 3, "10"], ["seated-dip-machine", 3, "10"], ["cable-curl", 3, "15"], ["overhead-triceps-extension", 3, "15"]],
+      [["cable-curl", 3, "15"], ["triceps-pushdown", 3, "15"], ["biceps-curl-machine", 3, "10"], ["seated-dip-machine", 3, "10"], ["incline-dumbbell-curl", 3, "12"], ["overhead-triceps-extension", 3, "12"]],
+      [["cable-curl", 3, "15"], ["triceps-pushdown", 3, "15"], ["hammer-curl", 3, "10"], ["biceps-curl-machine", 3, "10"], ["seated-dip-machine", 3, "10"], ["incline-dumbbell-curl", 3, "12"], ["overhead-triceps-extension", 3, "12"]],
+      [["bench-dips", 5, "5-10"], ["incline-dumbbell-curl", 3, "12"], ["skull-crusher", 3, "12"], ["overhead-triceps-extension", 3, "15"], ["cable-curl", 3, "15"]],
+      [["incline-dumbbell-curl", 4, "12"], ["skull-crusher", 4, "12"], ["triceps-dips", 4, "6-10"], ["cable-curl", 4, "15"], ["overhead-triceps-extension", 5, "15"]],
+      [["triceps-dips", 5, "8"], ["cable-curl", 4, "12"], ["triceps-pushdown", 4, "12"], ["ez-bar-curl", 3, "15"], ["skull-crusher", 3, "15"]],
+      [["ez-bar-curl", 3, "12"], ["cable-curl", 3, "25"], ["triceps-dips", 3, "6"], ["skull-crusher", 3, "12"], ["triceps-pushdown", 3, "25"]],
+      [["triceps-dips", 4, "6-10"], ["dumbbell-curl", 3, "10"], ["overhead-triceps-extension", 3, "10"], ["cable-curl", 3, "10"], ["triceps-pushdown", 3, "10"]],
+      [["barbell-curl", 3, "6-12"], ["hammer-curl", 3, "6-12"], ["cable-curl", 3, "6-12"]],
+      [["skull-crusher", 3, "6-12"], ["overhead-triceps-extension", 3, "6-12"], ["triceps-pushdown", 3, "6-12"]],
+      [["incline-dumbbell-curl", 3, "8-12"], ["preacher-curl", 3, "8-12"], ["cable-curl", 3, "10-15"], ["close-grip-bench-press", 3, "6-10"], ["overhead-triceps-extension", 3, "8-12"], ["triceps-pushdown", 3, "10-15"]],
+      [["close-grip-bench-press", 6, "6-10"], ["triceps-pushdown", 6, "6-10"], ["overhead-triceps-extension", 10, "6-10"], ["barbell-curl", 5, "8-12"], ["incline-dumbbell-curl", 5, "8-12"], ["concentration-curl", 5, "10"], ["dumbbell-curl", 5, "10"]],
+      [["incline-dumbbell-curl", 4, "8-10"], ["triceps-pushdown", 4, "8-10"], ["dumbbell-curl", 4, "10"], ["overhead-triceps-extension", 4, "10"], ["preacher-curl", 4, "10"], ["skull-crusher", 4, "10"], ["concentration-curl", 4, "10"], ["reverse-curl", 4, "10-12"], ["wrist-curl", 4, "10-12"]],
+      [["seated-dip-machine", 4, "15-20"], ["biceps-curl-machine", 4, "15-20"], ["close-grip-bench-press", 4, "10-12"], ["cable-curl", 4, "10-12"], ["overhead-triceps-extension", 4, "10-12"], ["hammer-curl", 4, "10-12"], ["triceps-pushdown", 4, "11-20"]],
+      [["cable-curl", 3, "12-15"], ["triceps-pushdown", 3, "12-15"], ["skull-crusher", 3, "12-15"], ["dumbbell-curl", 3, "12-15"], ["barbell-curl", 3, "12-15"], ["triceps-kickback", 3, "12-15"], ["overhead-triceps-extension", 3, "12-15"], ["hammer-curl", 3, "12-15"], ["wrist-curl", 3, ""]],
+      [["cable-curl", 3, "15"], ["overhead-triceps-extension", 3, "15"], ["dumbbell-curl", 3, "15"], ["close-grip-bench-press", 3, "15"], ["concentration-curl", 3, "15"], ["triceps-dips", 3, "15"]],
+      [["ez-bar-curl", 4, "10-12"], ["incline-dumbbell-curl", 3, "10-12"], ["hammer-curl", 3, "12-15"]],
+      [["close-grip-bench-press", 4, "8"], ["incline-dumbbell-curl", 4, "10-15"], ["overhead-triceps-extension", 4, "10-15"], ["wrist-curl", 3, "10-15"]],
+      [["ez-bar-curl", 4, "6-8"], ["skull-crusher", 4, "8-12"], ["incline-dumbbell-curl", 3, "10-15"], ["overhead-triceps-extension", 3, "10-15"], ["hammer-curl", 3, "10-15"], ["wrist-curl", 3, "10-15"]],
+      [["barbell-curl", 3, "6-8"], ["hammer-curl", 3, "8"], ["preacher-curl", 3, "12"], ["close-grip-bench-press", 3, "6"], ["skull-crusher", 3, "6-8"], ["triceps-pushdown", 3, "8"], ["overhead-triceps-extension", 3, "12"]],
+      [["barbell-curl", 2, "6"], ["skull-crusher", 2, "6"], ["preacher-curl", 2, "10"], ["overhead-triceps-extension", 2, "10"], ["cable-curl", 2, "15"], ["triceps-pushdown", 2, "15"]],
+      [["barbell-curl", 3, "8"], ["preacher-curl", 3, "12"], ["cable-curl", 3, "20"]],
+      [["bench-dips", 3, "8-15"], ["skull-crusher", 4, "8-15"], ["overhead-triceps-extension", 3, "8-15"], ["barbell-curl", 4, "8-15"], ["dumbbell-curl", 3, "8-15"], ["hammer-curl", 3, "8-15"]],
+      [["skull-crusher", 3, "12-15"], ["triceps-pushdown", 3, "15-20"], ["barbell-curl", 3, "12-15"]],
+      [["close-grip-bench-press", 4, "8-12"], ["skull-crusher", 3, "8-12"], ["triceps-pushdown", 3, "8-12"], ["overhead-triceps-extension", 3, "8-12"]],
+      [["dumbbell-curl", 3, "4-8"], ["hammer-curl", 3, "4-8"], ["wrist-curl", 2, "8-10"], ["overhead-triceps-extension", 3, "4-8"], ["triceps-extension-machine", 3, "4-8"], ["triceps-pushdown", 3, "4-8"]],
+      [["barbell-curl", 4, "12-15"], ["dumbbell-curl", 4, "12-15"], ["preacher-curl", 4, "12-15"], ["hammer-curl", 4, "12-15"], ["skull-crusher", 4, "12-15"], ["triceps-pushdown", 8, "12-15"], ["triceps-kickback", 4, "12-15"]],
+      [["close-grip-bench-press", 4, "6-8"], ["skull-crusher", 4, "6-8"], ["triceps-pushdown", 4, "20-25"]],
+      [["overhead-triceps-extension", 5, "6-8"], ["close-grip-bench-press", 5, "6-8"], ["skull-crusher", 5, "6-8"], ["triceps-pushdown", 5, "6-8"]],
+      [["triceps-dips", 3, "6-8"], ["overhead-triceps-extension", 3, "8-10"], ["triceps-kickback", 3, "10-12"]],
+      [["hammer-curl", 3, "7-9"], ["incline-dumbbell-curl", 3, "7-9"], ["barbell-curl", 3, "7-9"]],
+      [["close-grip-bench-press", 4, "6-8"], ["overhead-triceps-extension", 3, "10-15"], ["triceps-pushdown", 3, "10-15"]],
+    ],
+  };
+  // <<< collected routines
+
+  // A tiny seeded random (mulberry32), so the same 10 routines come out every time.
+  function seededRandom(seed) {
+    let a = seed;
+    return () => {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Up to 10 different routines per part: one random candidate per slot, no repeats.
+  function drawRoutines(slots, seed, classic) {
+    const rnd = seededRandom(seed);
+    const out = [];
+    const seen = new Set();
+    if (classic) {
+      out.push(classic.map(([id, sets, range]) => ({ id, sets, range })));
+      seen.add(classic.map(c => c[0]).join(','));
+    }
+    for (let tries = 0; out.length < 10 && tries < 300; tries++) {
+      const used = new Set();
+      const items = [];
+      for (const [sets, range, candidates] of slots) {
+        const pool = candidates.map(c => (Array.isArray(c) ? c : [c, sets, range])).filter(([id]) => EXERCISE_MAP.has(id) && !used.has(id));
+        if (!pool.length) continue;
+        const pick = pool[Math.floor(rnd() * pool.length)];
+        used.add(pick[0]);
+        items.push(pick);
+      }
+      items.sort((a, b) => Number(Boolean(b[3])) - Number(Boolean(a[3])));
+      const key = items.map(i => i[0]).join(',');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(items.map(([id, sets, range]) => ({ id, sets, range })));
+    }
+    return out;
+  }
+
+  // Parts with collected routines use those (after the classic); the rest are drawn from slots.
+  const ROUTINES = Object.fromEntries(Object.entries(ROUTINE_SLOTS).map(([pid, slots], i) => {
+    const collected = COLLECTED_ROUTINES[pid];
+    if (!collected) return [pid, drawRoutines(slots, 7919 * (i + 3), CLASSIC_ROUTINES[pid])];
+    const toItems = list => list.filter(([id]) => EXERCISE_MAP.has(id)).map(([id, sets, range]) => ({ id, sets, range }));
+    const classic = CLASSIC_ROUTINES[pid] ? [toItems(CLASSIC_ROUTINES[pid])] : [];
+    const key = items => items.map(it => it.id).join();
+    const seen = new Set(classic.map(key));
+    return [pid, classic.concat(collected.map(toItems).filter(items => items.length >= 3 && !seen.has(key(items)) && seen.add(key(items))))];
+  }));
+
+
   // One logged set: any of w (kg), r (reps), t (time), d (km).
   function cleanSet(src) {
     if (!src || typeof src !== 'object') return null;
@@ -203,7 +508,7 @@
   }
   const STALE_DAYS = 7;
   // Bump together with version.json on every release so phones notice the update.
-  const APP_VERSION = '2.3.0';
+  const APP_VERSION = '2.3.1';
   const CACHE_PREFIX = 'gym-check';
 
   const svg = (d, w = 2.4) =>
@@ -1501,6 +1806,21 @@
   const shortName = n => n.replace(/\s*\(.*\)$/, '');
   const allExercises = () => [...EXERCISE_MAP.values(), ...state.customEx.map(e => ({ ...e, equip: '직접 추가' }))];
 
+  // "4세트 × 8~10회", "3세트 × 45초", "20~30분"
+  function routineText(ex, r) {
+    const range = r.range.replace('-', '~');
+    if (ex.kind === 'cardio') return `${range}분`;
+    const each = !range ? '최대' : ex.kind === 't' || ex.kind === 'wt' ? `${range}초` : `${range}회`;
+    return `${r.sets}세트 × ${each}`;
+  }
+
+  // Empty sets for a first try, with the low end of the range filled in.
+  function routineSets(ex, r) {
+    const low = parseFloat(r.range);
+    const field = ex.kind === 'wr' || ex.kind === 'r' ? 'r' : 't';
+    return Array.from({ length: r.sets }, () => (Number.isFinite(low) ? { [field]: low } : {}));
+  }
+
   function setText(kind, s) {
     switch (kind) {
       case 'wr': return `${s.w}kg × ${s.r}`;
@@ -1573,21 +1893,38 @@
   }
 
   // back: where 'back' goes — 'pick', 'day', 'history', or null (close).
-  function openExerciseLog(date, exId, back) {
+  function openExerciseLog(date, exId, back, rec = null, queue = null, qi = 0) {
     const ex = exById(exId);
     if (!ex) return;
     const entry = (state.logs[date] || []).find(e => e.ex === exId);
     const before = exerciseHistory(exId).find(h => h.date < date) || null;
-    const source = entry ? entry.sets : before ? before.sets : [{}];
+    const source = entry ? entry.sets : before ? before.sets : rec ? routineSets(ex, rec) : [{}];
     const prev = ui.exSheet || {};
     ui.sheetDate = null;
     ui.partSheet = null;
     ui.exSheet = {
       step: 'log', date, ex: exId, back, existing: Boolean(entry), last: before,
-      sets: source.map(st => ({ ...st })), from: prev.from, filter: prev.filter, q: prev.q || '',
+      sets: source.map(st => ({ ...st })), from: prev.from, filter: prev.filter, q: prev.q || '', routine: prev.routine,
+      queue, qi,
     };
     renderExSheet();
     showSheet();
+  }
+
+  // 확인 in the picker: log the ticked exercises one after another.
+  function startExerciseQueue() {
+    const x = ui.exSheet;
+    const queue = (x.selected || []).slice();
+    if (!queue.length) return;
+    x.selected = [];
+    openExerciseLog(x.date, queue[0].id, 'pick', queue[0].rec, queue, 0);
+  }
+
+  function nextInQueue(x) {
+    if (!x.queue || x.qi >= x.queue.length - 1) return false;
+    const n = x.queue[x.qi + 1];
+    openExerciseLog(x.date, n.id, 'pick', n.rec, x.queue, x.qi + 1);
+    return true;
   }
 
   function openExerciseHistory(exId) {
@@ -1622,14 +1959,52 @@
     const rank = e => { const i = recent.indexOf(e.id); return i < 0 ? 99 : i; };
     pool = pool.map((e, i) => ({ e, i })).sort((a, b) => rank(a.e) - rank(b.e) || a.i - b.i).map(o => o.e);
     const done = new Set((state.logs[x.date] || []).map(e => e.ex));
-    const rows = pool.map(e => `
-      <button class="ex-row" data-action="ex-pick" data-ex="${esc(e.id)}">
-        <span><b>${esc(e.name)}</b><small>${esc(e.equip)}${recent.includes(e.id) ? ' · 최근' : ''}</small></span>${done.has(e.id) ? '<i>기록함</i>' : ''}
+    x.selected = x.selected || [];
+    const picked = new Set(x.selected.map(sel => sel.id));
+    const checkMark = `<span class="ex-check" aria-hidden="true">${ICON.check}</span>`;
+    // Browsing a part (or today's parts): one of its 10 routines on top, picked at random.
+    let routine = '';
+    if (!q && x.filter !== 'all') {
+      const parts = x.filter === 'today' ? dayParts(x.date) : [x.filter];
+      const shown = new Set();
+      x.routine = x.routine || {};
+      for (const pid of parts) {
+        const list = ROUTINES[pid] || [];
+        if (!list.length) continue;
+        if (!(x.routine[pid] < list.length)) x.routine[pid] = Math.floor(Math.random() * list.length);
+        const n = x.routine[pid];
+        const items = list[n];
+        const label = pid === 'full' ? '전신' : (partById(pid) || DEFAULT_PARTS.find(d => d.id === pid) || { name: '' }).name;
+        routine += `<div class="ex-group rec-head">
+            <span><b>${esc(label)}</b> 추천 루틴</span>
+            ${list.length > 1 ? `<button class="rec-shuffle" data-action="ex-shuffle" data-part="${esc(pid)}">${ICON.refresh}<span>다른 루틴</span></button>` : ''}
+          </div>` + items.map(({ id, sets, range }, i) => {
+          const e = EXERCISE_MAP.get(id);
+          shown.add(id);
+          return `<button class="ex-row rec${picked.has(id) ? ' sel' : ''}" data-action="ex-toggle" data-ex="${esc(id)}" data-sets="${sets}" data-range="${esc(range)}" aria-pressed="${picked.has(id)}">
+            <span class="ex-no d">${i + 1}</span>
+            <span><b>${esc(e.name)}</b><small>${esc(routineText(e, { sets, range }))} · ${esc(e.equip)}</small></span>${done.has(id) ? '<i>기록함</i>' : ''}${checkMark}
+          </button>`;
+        }).join('');
+      }
+      if (routine) {
+        pool = pool.filter(e => !shown.has(e.id));
+        routine += '<p class="ex-group">전체 종목</p>';
+      }
+    }
+    const rows = routine + pool.map(e => `
+      <button class="ex-row${picked.has(e.id) ? ' sel' : ''}" data-action="ex-toggle" data-ex="${esc(e.id)}" aria-pressed="${picked.has(e.id)}">
+        <span><b>${esc(e.name)}</b><small>${esc(e.equip)}${recent.includes(e.id) ? ' · 최근' : ''}</small></span>${done.has(e.id) ? '<i>기록함</i>' : ''}${checkMark}
       </button>`).join('');
     const typed = x.q.trim().slice(0, 30);
     const custom = typed && !pool.some(e => e.name === typed)
-      ? `<button class="ex-row ex-custom" data-action="ex-custom"><span><b>'${esc(typed)}' 새 종목으로 추가</b><small>무게 × 횟수로 기록해요</small></span>${ICON.plus}</button>` : '';
-    box.innerHTML = rows + custom + (!rows && !custom ? '<p class="note">이 부위에 맞는 종목이 없어요. 검색해서 새 종목으로 추가할 수 있어요.</p>' : '');
+      ? `<button class="ex-row ex-custom" data-action="ex-custom"><span><b>'${esc(typed)}' 새 종목으로 추가</b><small>직접 추가</small></span>${ICON.plus}</button>` : '';
+    box.innerHTML = rows + custom + (!rows && !custom ? '<p class="note">맞는 종목이 없어요. 검색해서 추가해 보세요</p>' : '');
+    const bar = $('#ex-confirm');
+    if (bar) {
+      bar.hidden = !x.selected.length;
+      bar.innerHTML = x.selected.length ? `<button class="photo-cta" data-action="ex-confirm"><span>${x.selected.length}개 선택 · 확인</span></button>` : '';
+    }
   }
 
   function renderExSheet() {
@@ -1642,9 +2017,10 @@
           <div><p class="kicker">${md(x.date)}</p><h2 id="sheet-title">종목 고르기</h2></div>
           <button class="btn" data-action="ex-back">${x.from === 'day' ? '뒤로' : '닫기'}</button>
         </div>
-        <div class="field ex-search"><input id="ex-search" type="search" value="${esc(x.q)}" placeholder="종목 검색 (예: 벤치, 레그)" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="종목 검색"></div>
+        <div class="field ex-search"><input id="ex-search" type="search" value="${esc(x.q)}" placeholder="종목 검색" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="종목 검색"></div>
         <div class="ex-chips" id="ex-chips">${exChips()}</div>
-        <div class="ex-list" id="ex-list"></div>`;
+        <div class="ex-list" id="ex-list"></div>
+        <div class="ex-confirm" id="ex-confirm" hidden></div>`;
       renderExList();
       return;
     }
@@ -1667,6 +2043,7 @@
       return;
     }
     const fields = EX_KINDS[ex.kind];
+    const more = Boolean(x.queue) && x.qi < x.queue.length - 1;
     const rows = x.sets.map((st, i) => `
       <div class="set-row">
         <span class="set-no d">${i + 1}</span>
@@ -1676,13 +2053,14 @@
     sheet.innerHTML = `
       <div class="handle" aria-hidden="true"></div>
       <div class="sheet-head">
-        <div><p class="kicker">${md(x.date)} · ${esc(ex.equip)}</p><h2 id="sheet-title">${esc(shortName(ex.name))}</h2></div>
+        <div><p class="kicker">${md(x.date)} · ${esc(ex.equip)}${x.queue && x.queue.length > 1 ? ` · ${x.qi + 1}/${x.queue.length}` : ''}</p><h2 id="sheet-title">${esc(shortName(ex.name))}</h2></div>
         <button class="btn" data-action="ex-back">${x.back ? '뒤로' : '닫기'}</button>
       </div>
       ${x.last ? `<p class="ex-last">지난번 ${shortDay(x.last.date)} · ${esc(logSummary(ex, x.last.sets))}</p>` : ''}
       <div class="set-list">${rows}</div>
       <button class="btn set-add" data-action="set-add">${ICON.plus}<span>세트 추가</span></button>
-      <button class="photo-cta" data-action="ex-save"><span>저장</span></button>
+      <button class="photo-cta" data-action="ex-save"><span>${more ? '저장하고 다음' : '저장'}</span></button>
+      ${more ? '<button class="text-btn ex-skip" data-action="ex-skip">이 종목 건너뛰기</button>' : ''}
       ${x.existing ? '<button class="btn danger part-delete" data-action="ex-delete">이 종목 기록 삭제</button>' : ''}`;
   }
 
@@ -1696,7 +2074,11 @@
     const id = `u_${Date.now().toString(36)}`;
     state.customEx.push({ id, name, part, kind: 'wr' });
     save();
-    openExerciseLog(x.date, id, 'pick');
+    x.selected = (x.selected || []).concat({ id, rec: null });
+    x.q = '';
+    const input = $('#ex-search');
+    if (input) input.value = '';
+    renderExList();
   }
 
   // Reads the editor's sets; a set counts when its required fields are filled.
@@ -1731,7 +2113,7 @@
     // Logging an exercise also checks its part for that day.
     if (state.parts.some(p => p.id === ex.part) && !dayParts(x.date).includes(ex.part)) cheerToggle(x.date, ex.part);
     toast(`${shortName(ex.name)} 저장했어요`);
-    leaveExercise(x);
+    if (!nextInQueue(x)) leaveExercise(x);
     renderCurrent();
   }
 
@@ -1749,8 +2131,8 @@
 
   // After saving or deleting, go back to where the editor was opened from.
   function leaveExercise(x) {
-    if (x.back === 'day') openSheet(x.date);
-    else if (x.back === 'history') openExerciseHistory(x.ex);
+    if (x.back === 'history') openExerciseHistory(x.ex);
+    else if (x.back === 'day' || x.from === 'day') openSheet(x.date);
     else closeSheet();
   }
 
@@ -1758,7 +2140,7 @@
     const x = ui.exSheet;
     if (!x) return;
     if (x.step === 'log' && x.back === 'pick') {
-      ui.exSheet = { step: 'pick', date: x.date, from: x.from, filter: x.filter || 'all', q: x.q || '' };
+      ui.exSheet = { step: 'pick', date: x.date, from: x.from, filter: x.filter || 'all', q: x.q || '', routine: x.routine, selected: x.queue ? x.queue.slice(x.qi) : [] };
       renderExSheet();
     } else if (x.step === 'log' && x.back === 'history') openExerciseHistory(x.ex);
     else if ((x.step === 'log' && x.back === 'day') || (x.step === 'pick' && x.from === 'day')) openSheet(x.date);
@@ -1785,7 +2167,7 @@
           <span class="lift-name"><b>${esc(shortName(r.ex.name))}</b><small>${r.h.length}번 · 마지막 ${shortDay(r.h[0].date)}</small></span>
           <span class="lift-best"><b>${best ? esc(setText(r.ex.kind, best)) : ''}</b>${orm ? `<small>1RM ${orm}kg</small>` : ''}</span>
         </button>`;
-    }).join('') : '<p class="note lift-empty">오늘 탭에서 종목과 무게를 기록하면 종목별 최고 기록이 여기 쌓여요.</p>';
+    }).join('') : '<p class="note lift-empty">종목을 기록하면 여기 쌓여요</p>';
     return `<section class="block">
         <div class="section-head"><h2>종목별 기록</h2><span class="kicker">All time</span></div>
         ${body}
@@ -2092,7 +2474,7 @@
   async function logOut() {
     if (!loggedIn()) return;
     const handle = state.social.handle;
-    if (!confirm(`@${handle}에서 로그아웃할까요?\n다시 들어오려면 아이디와 비밀번호가 필요해요. 출석 기록과 사진은 이 폰에 그대로 있어요.`)) return;
+    if (!confirm(`@${handle}에서 로그아웃할까요?\n기록과 사진은 이 폰에 그대로 남아요.`)) return;
     await cloudPush(); // don't leave unsent changes behind
     try { await api('/api/session', { method: 'DELETE' }); } catch (e) { /* the token is dropped here either way */ }
     if (state.social) {
@@ -2127,9 +2509,9 @@
     const label = account.busy ? (login ? '확인 중…' : '만드는 중…') : (login ? '로그인' : '만들기');
     return `<form class="pw-form auth-form" data-form="soc-auth" novalidate>
         <p class="auth-title">${login ? '로그인' : '아이디 만들기'}</p>
-        <div class="field handle-field"><span>@</span><input id="soc-handle" name="username" type="text" maxlength="20" value="${esc(f.handle)}" placeholder="아이디" autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" enterkeyhint="next" aria-label="아이디"></div>
+        <div class="field handle-field"><span>@</span><input id="soc-handle" name="username" type="text" maxlength="20" value="${esc(f.handle)}" placeholder="${login ? '아이디' : '아이디 (영문·숫자 3~20자)'}" autocapitalize="none" autocomplete="username" autocorrect="off" spellcheck="false" enterkeyhint="next" aria-label="아이디"></div>
         <input id="soc-password" name="password" type="password" maxlength="64" value="${esc(f.password)}" placeholder="${login ? '비밀번호' : `비밀번호 (${PW_MIN}자 이상)`}" autocomplete="${login ? 'current-password' : 'new-password'}" enterkeyhint="go" aria-label="비밀번호">
-        ${login ? '' : '<p class="note">아이디는 영문 소문자·숫자·.·_ 3~20자예요. 이메일을 받지 않아서 비밀번호를 잊으면 찾을 수 없어요. 아이폰이 암호를 저장할지 물으면 저장해 두세요.</p>'}
+        ${login ? '' : '<p class="note">비밀번호는 찾을 수 없어요. 꼭 저장해 두세요</p>'}
         <div class="pw-actions">
           <button type="button" class="btn" data-action="auth-cancel">취소</button>
           <button type="submit" class="btn primary"${account.busy ? ' disabled' : ''}>${label}</button>
@@ -2263,7 +2645,7 @@
 
   async function leaveCrew() {
     const c = crew.board && crew.board.crew;
-    if (!c || !confirm(`'${c.name}' 크루에서 나갈까요?\n지금까지 인증한 사진은 다른 크루에서도 계속 보여요.`)) return;
+    if (!c || !confirm(`'${c.name}' 크루에서 나갈까요?`)) return;
     try {
       await api(`/api/crews/${c.id}/me`, { method: 'DELETE' });
       crew.list = (crew.list || []).filter(x => x.id !== c.id);
@@ -2390,17 +2772,17 @@
   function renderCrew() {
     const el = views.crew;
     const head = (title, kicker = 'Crew', nav = '') => `<header class="head"><div><p class="kicker">${kicker}</p><h1>${title}</h1></div>${nav}</header>`;
-    const intro = `<div class="crew-intro">친구 2~8명이 모여서 <b>이번 주 누가 오운완 인증을 더 많이 했는지</b> 겨뤄요. 인증은 <b>그날 찍은 오운완 사진</b>으로만 되고, 사진은 크루원끼리만 봐요.</div>`;
+    const intro = `<div class="crew-intro">친구끼리 이번 주 <b>오운완 인증</b> 횟수로 겨뤄요</div>`;
 
     if (!loggedIn()) {
       el.innerHTML = `${head('크루')}${intro}
         <div class="group">${account.auth ? authFormHtml() : `
-          <div class="row"><span class="row-label">크루는 로그인하고 쓸 수 있어요<small>로그인하면 기록과 사진도 서버에 자동 저장돼요</small></span></div>
+          <div class="row"><span class="row-label">로그인하고 시작해요</span></div>
           <div class="auth-buttons">
             <button class="btn" data-action="auth-open" data-mode="login">로그인</button>
             <button class="btn primary" data-action="auth-open" data-mode="signup">아이디 만들기</button>
           </div>`}</div>
-        ${crew.pendingCode ? `<p class="note">로그인하면 초대 코드 <b class="code">${esc(crew.pendingCode)}</b> 크루로 들어가요.</p>` : ''}`;
+        ${crew.pendingCode ? `<p class="note">로그인하면 바로 크루에 들어가요</p>` : ''}`;
       return;
     }
     if (crew.list === null) {
@@ -2450,12 +2832,12 @@
         <img src="${esc(API_BASE + r.now.image)}" alt="" loading="lazy" decoding="async">
         <span class="proof-who">@${esc(r.handle)}</span>
         <span class="proof-fire${r.now.fired ? ' on' : ''}">🔥 ${r.now.fires}</span>
-      </button>`).join('')}</div>` : '<p class="note crew-none">아직 오늘 인증한 사람이 없어요.</p>';
+      </button>`).join('')}</div>` : '<p class="note crew-none">아직 아무도 없어요</p>';
     const me = rows.find(r => r.isMe);
     const cta = me && me.now ? '' : `<button class="photo-cta" data-action="crew-shoot">${ICON.camera}<span>${attended(tk) ? '오운완 찍고 인증하기' : '운동 체크하고 오운완으로 인증하기'}</span></button>`;
     const last = b.lastWeek && b.lastWeek.winners.length
       ? `<p class="crew-last">🏆 지난주 1등 <b>${b.lastWeek.winners.map(h => `@${esc(h)}`).join(', ')}</b> · ${b.lastWeek.best}일</p>` : '';
-    const alone = b.members.length < 2 ? '<div class="crew-intro">아직 혼자예요. 위의 <b>초대</b>를 눌러 친구에게 링크를 보내 보세요.</div>' : '';
+    const alone = b.members.length < 2 ? '<div class="crew-intro">아직 혼자예요. <b>초대</b>로 친구를 불러보세요</div>' : '';
 
     el.innerHTML = `
       ${head(esc(b.crew.name), `Crew · ${b.crew.members}명`, invite)}
@@ -2467,10 +2849,10 @@
       <div class="section-head"><h2>오늘 인증 <span class="count">${proven.length}</span></h2><span class="kicker">Today</span></div>
       ${strip}
       ${cta}
-      <p class="note">오늘 찍은 오운완 사진을 저장하면 자동으로 인증돼요. 하루 한 번만 세요.</p>
+      <p class="note">오늘 찍은 오운완을 저장하면 자동 인증돼요</p>
       <div class="group crew-manage">
-        <div class="row"><span class="row-label">초대 코드<small>친구가 크루 탭에서 입력하거나, 초대 링크로 들어와요</small></span><b class="code d">${esc(b.crew.code)}</b></div>
-        <div class="row"><span class="row-label">다른 크루 만들기·들어가기<small>크루는 5개까지</small></span><button class="btn" data-action="crew-add">추가</button></div>
+        <div class="row"><span class="row-label">초대 코드</span><b class="code d">${esc(b.crew.code)}</b></div>
+        <div class="row"><span class="row-label">다른 크루 만들기·들어가기</span><button class="btn" data-action="crew-add">추가</button></div>
         <div class="row"><span class="row-label">이 크루에서 나가기</span><button class="text-btn danger" data-action="crew-leave">나가기</button></div>
       </div>`;
   }
@@ -2494,6 +2876,7 @@
   }
 
   function backupBanner() {
+    if (loggedIn()) return ''; // the account already backs everything up
     const n = Object.keys(state.records).length;
     if (n < 7) return '';
     const since = state.lastBackup ? daysBetween(new Date(state.lastBackup), new Date()) : Infinity;
@@ -2570,7 +2953,7 @@
           </div>
         </div>
         <div class="week-head">
-          <span>이번 주 <small>지난 날도 눌러서 체크</small></span>
+          <span>이번 주</span>
           <span class="${met ? 'met' : ''}"><b>${wk}</b> / ${goal}회${met ? ' · 목표 달성' : ''}</span>
         </div>
         <div class="week">${week}</div>
@@ -2652,7 +3035,7 @@
       </div>
       <div class="legend">${legend}</div>
       <button class="photo-cta${attendedDays ? '' : ' idle'}" data-action="recap">${ICON.chart}<span>${mo + 1}월 결산 카드 만들기</span></button>
-      <p class="note">날짜를 누르면 그날 기록을 고칠 수 있어요. 옆으로 밀면 달이 바뀌어요.</p>`;
+`;
   }
 
   function badgeSection() {
@@ -2681,7 +3064,7 @@
     const monthly = timed.filter(b => b.group === 'monthly').reverse(); // this month first
     const seasons = [...new Set(timed.filter(b => b.group === 'season').map(b => b.year))].sort((a, b) => b - a);
     const html = [
-      group('월간 챌린지', monthly, `매달 ${MONTH_GOAL}일 출석하면 그 달 배지를 받아요`),
+      group('월간 챌린지', monthly, `한 달에 ${MONTH_GOAL}일 출석하면 획득`),
       ...seasons.map(y => group(`${y} 시즌`, timed.filter(b => b.group === 'season' && b.year === y))),
       ...BADGE_GROUPS.map(g => group(g.name, BADGES.filter(b => b.group === g.id))),
     ].join('');
@@ -2775,9 +3158,9 @@
       ${needsReinstall() ? `
       <div class="section-head" id="fit-guide"><h2>화면 꽉 채우기</h2><span class="kicker">Fit</span></div>
       <div class="group">
-        <p class="install">지금 아이콘은 예전 방식으로 추가돼서 화면 아래가 비어 보여요. 아이콘을 한 번만 다시 추가하면 꽉 차요.<br>
+        <p class="install">아이콘을 다시 추가하면 화면이 꽉 차요.<br>
         <b>1</b> 아래 ‘내보내기’로 기록 백업<br>
-        <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(이때 기록과 사진도 같이 지워져요. 1단계 백업에 사진도 들어가요)</small><br>
+        <b>2</b> 홈 화면 아이콘을 길게 눌러 삭제 <small>(기록도 지워지니 1단계 백업 먼저)</small><br>
         <b>3</b> Safari로 앱 주소를 열고 <b>새로고침(↻) 한 번</b> → 공유 → ‘홈 화면에 추가’<br>
         <b>4</b> 새 아이콘에서 설정 → ‘가져오기’로 백업 불러오기</p>
         <div class="row">
@@ -2789,7 +3172,7 @@
       <div class="section-head"><h2>앱 업데이트</h2><span class="kicker">v${APP_VERSION}</span></div>
       <div class="group">
         <div class="row">
-          <span class="row-label">${hasUpdate() ? `새 버전 v${esc(ui.latestVersion)} 나왔어요` : `지금 버전 v${APP_VERSION}`}<small>업데이트해도 기록은 그대로예요</small></span>
+          <span class="row-label">${hasUpdate() ? `새 버전 v${esc(ui.latestVersion)} 나왔어요` : `지금 버전 v${APP_VERSION}`}<small>기록은 그대로예요</small></span>
           <button class="btn${hasUpdate() ? ' primary' : ''}" data-action="update"${ui.updating ? ' disabled' : ''}>${hasUpdate() ? '업데이트' : '업데이트 확인'}</button>
         </div>
       </div>
@@ -2810,7 +3193,7 @@
       <div class="group">
         ${loggedIn() ? `
         <div class="row">
-          <span class="row-label">@${esc(state.social.handle)}<small>이 아이디로 기록과 사진이 저장돼요</small></span>
+          <span class="row-label">@${esc(state.social.handle)}</span>
           <button class="btn" data-action="soc-logout">로그아웃</button>
         </div>
         <div class="row">
@@ -2828,11 +3211,11 @@
           </div>
         </form>` : `
         <div class="row">
-          <span class="row-label">비밀번호 바꾸기<small>잊어버렸어도 로그인된 폰에서는 새로 정할 수 있어요</small></span>
+          <span class="row-label">비밀번호 바꾸기</span>
           <button class="btn" data-action="pw-open">바꾸기</button>
         </div>`}` : account.auth ? authFormHtml() : `
         <div class="row">
-          <span class="row-label">로그인 안 됨<small>로그인하면 기록과 사진이 서버에도 자동 저장돼서, 폰을 바꿔도 그대로예요</small></span>
+          <span class="row-label">로그인 안 됨<small>로그인하면 기록이 자동 백업돼요</small></span>
         </div>
         <div class="auth-buttons">
           <button class="btn" data-action="auth-open" data-mode="login">로그인</button>
@@ -2847,13 +3230,13 @@
           ${exportButton()}
         </div>
         <div class="row">
-          <span class="row-label">기록 가져오기<small>지금 기록을 백업 파일 내용으로 바꿔요</small></span>
+          <span class="row-label">기록 가져오기</span>
           <button class="btn" data-action="import">가져오기</button>
         </div>
       </div>
       <p class="note tight">${loggedIn()
-        ? '로그인돼 있어서 기록과 오운완 사진이 서버에도 자동 저장돼요. 새 폰에서 로그인하면 그대로 돌아와요. 백업 파일은 따로 보관하고 싶을 때 쓰세요.'
-        : '기록은 이 폰에만 저장돼요. 폰을 바꾸거나 브라우저 데이터를 지우기 전에 꼭 내보내기 해 두세요. 위 계정에서 로그인하면 서버에도 자동 저장돼요.'}</p>
+        ? '기록과 사진은 서버에 자동 저장되고 있어요'
+        : '기록은 이 폰에만 있어요. 폰 바꾸기 전에 내보내기 해 두세요'}</p>
 
       ${standalone ? '' : `
       <div class="section-head"><h2>홈 화면에 추가</h2><span class="kicker">Install</span></div>
@@ -3203,7 +3586,29 @@
       case 'ex-add': openExercisePicker(el.dataset.date, el.dataset.from); break;
       case 'ex-edit': openExerciseLog(el.dataset.date, el.dataset.ex, { today: null, day: 'day', history: 'history' }[el.dataset.from] || null); break;
       case 'ex-history': openExerciseHistory(el.dataset.ex); break;
-      case 'ex-pick': openExerciseLog(ui.exSheet.date, el.dataset.ex, 'pick'); break;
+      case 'ex-toggle': {
+        const x = ui.exSheet;
+        x.selected = x.selected || [];
+        const at = x.selected.findIndex(sel => sel.id === el.dataset.ex);
+        if (at >= 0) x.selected.splice(at, 1);
+        else x.selected.push({ id: el.dataset.ex, rec: el.dataset.sets ? { sets: Number(el.dataset.sets), range: el.dataset.range } : null });
+        renderExList();
+        break;
+      }
+      case 'ex-confirm': startExerciseQueue(); break;
+      case 'ex-skip':
+        if (!nextInQueue(ui.exSheet)) leaveExercise(ui.exSheet);
+        break;
+      case 'ex-shuffle': {
+        const pid = el.dataset.part;
+        const count = (ROUTINES[pid] || []).length;
+        const cur = ui.exSheet.routine[pid];
+        let next = cur;
+        while (count > 1 && next === cur) next = Math.floor(Math.random() * count);
+        ui.exSheet.routine[pid] = next;
+        renderExList();
+        break;
+      }
       case 'ex-filter':
         ui.exSheet.filter = el.dataset.filter;
         $('#ex-chips').innerHTML = exChips();

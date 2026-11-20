@@ -1050,7 +1050,7 @@ button.fire:active { transform: scale(.9); }
 .ex-chips::-webkit-scrollbar { display: none; }
 .ex-chips .pill { flex-shrink: 0; }
 .ex-chips .pill[aria-pressed="true"], .crew-chips .pill[aria-pressed="true"] { background: var(--volt); color: var(--on-volt); }
-.ex-list { display: grid; border-top: 1px solid var(--line); }
+.ex-list { display: grid; }
 .ex-row { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 9px 2px; border-bottom: 1px solid var(--line); text-align: left; }
 .ex-row:active { background: var(--surface); }
 .ex-row > span { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -1114,3 +1114,45 @@ button.fire:active { transform: scale(.9); }
 .lift-best b { font-family: var(--display); font-style: italic; font-weight: 800; font-size: 19px; color: var(--volt); }
 .lift-best small { font-size: 11px; font-weight: 700; color: var(--muted); }
 .lift-empty { margin: 0 2px; }
+
+/* Short paragraphs and titles split into even lines instead of leaving a word or two
+   alone on the last line. (Phones without support just wrap as before.) */
+h1, h2, .cheer-title, .note, .crew-intro, .row-label small, .badge-note, .install, .auth-switch,
+.crew-empty, .ex-last, .cheer-meta, .crew-last { text-wrap: balance; }
+
+/* Recommended routine at the top of the exercise picker. */
+.ex-group { padding: 16px 2px 6px; font-size: 12px; font-weight: 700; color: var(--muted); border-bottom: 1px solid var(--line); }
+.ex-group b { color: var(--volt); font-weight: 800; }
+.ex-list > .ex-group:first-child { padding-top: 4px; }
+.ex-row > .ex-no { flex: 0 0 22px; font-size: 20px; color: var(--volt); text-align: center; }
+.ex-row.rec small { color: var(--text); opacity: .7; }
+.rec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rec-head small { margin-left: 4px; font-size: 12px; font-weight: 600; color: var(--faint); }
+.rec-shuffle { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 6px 10px; border-radius: 999px; background: var(--surface); font-size: 12px; font-weight: 800; color: var(--text); transition: transform 120ms var(--ease-out); }
+.rec-shuffle:active { transform: scale(.94); }
+.rec-shuffle svg { width: 14px; height: 14px; }
+
+/* Multi-select in the exercise picker. */
+.ex-check {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+  color: transparent;
+}
+.ex-check svg { width: 13px; height: 13px; color: inherit; }
+.ex-row.sel .ex-check { background: var(--volt); box-shadow: none; color: var(--on-volt); }
+.ex-row.sel { background: rgba(212, 255, 63, .06); }
+.ex-row > .ex-check { flex: 0 0 24px; display: grid; place-items: center; }
+.ex-confirm {
+  position: sticky;
+  bottom: calc(-18px - env(safe-area-inset-bottom, 0px));
+  margin: 0 calc(-1 * max(var(--gutter), env(safe-area-inset-right, 0px))) calc(-18px - env(safe-area-inset-bottom, 0px));
+  padding: 14px max(var(--gutter), env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(10, 10, 11, 0), var(--bg) 26%);
+}
+.ex-confirm .photo-cta { margin: 0; }
+.ex-skip { display: block; width: 100%; margin-top: 4px; padding: 12px; color: var(--muted); text-align: center; }

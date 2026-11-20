@@ -1,0 +1,178 @@
+# 추천 루틴 출처
+
+앱의 부위별 추천 루틴은 아래 페이지들의 루틴을 앱 종목에 맞춰 옮긴 거예요. (1번 정석 루틴은 직접 정리)
+
+## back (40)
+
+- 고볼륨 매스 4종목 — https://shop.bodybuilding.com/blogs/training/6-back-workouts-to-get-a-bigger-stronger-back
+- 등 디테일 다듬기 — https://shop.bodybuilding.com/blogs/training/6-back-workouts-to-get-a-bigger-stronger-back
+- 허리 부담 적은 루틴 — https://shop.bodybuilding.com/blogs/training/6-back-workouts-to-get-a-bigger-stronger-back
+- 친업 기초 다지기 — https://shop.bodybuilding.com/blogs/training/6-back-workouts-to-get-a-bigger-stronger-back
+- 올드스쿨 데드 5x5 — https://fitnessvolt.com/old-school-back-workouts/
+- 예이츠식 저볼륨 — https://fitnessvolt.com/old-school-back-workouts/
+- 올드스쿨 로우 위주 — https://fitnessvolt.com/old-school-back-workouts/
+- 데드리프트 5x5 중심 — https://fitnessvolt.com/best-back-workouts/
+- 랙풀 보디빌딩 매스 — https://www.strengthlog.com/bodybuilding-back-workout/
+- 데드·풀업 기본 4종 — https://www.strengthlog.com/how-to-build-a-big-back/
+- 바벨 기초 초보 — https://barbend.com/bodybuilding-back-workout/
+- 중급 보디빌딩 — https://barbend.com/bodybuilding-back-workout/
+- 상급 고반복 펌핑 — https://barbend.com/bodybuilding-back-workout/
+- 펜들레이 로우 중심 — https://generationiron.com/begginer-back-workout/
+- 풀업 5x5 슈퍼세트 — https://www.coachweb.com/fitness/workouts/back-workouts
+- 머신 섞은 중급 — https://www.tuasaude.com/en/back-workout
+- 랙풀 근력 루틴 — https://www.setforset.com/blogs/news/back-workouts
+- 데드 근비대 루틴 — https://www.setforset.com/blogs/news/back-workouts
+- 랙풀 근비대 루틴 — https://www.setforset.com/blogs/news/back-workouts
+- 랫풀다운 고볼륨 — https://brunch.co.kr/@jck1009/57
+- 스트레이트암 선피로 — https://brunch.co.kr/@jck1009/57
+- 헬린이 3종목 — https://brunch.co.kr/@jyjy0125/78
+- 넓은 등 7종목 — https://www.jefit.com/routines/20380/wider-bigger-back
+- 풀다운 위주 초보 — https://www.jefit.com/routines/19834/beginner-back-routine
+- 풀업·데드 근력 — https://fitnessvolt.com/bigger-back/
+- 단축 슈퍼세트 — https://fitnessvolt.com/bigger-back/
+- 랫풀다운 피더세트 — https://jeffnippard.com/blogs/news/the-ultimate-pull-workout-for-muscle-growth-back-biceps-rear-delts-2023
+- 고반복 풀다운 위주 — https://generationiron.com/gasparis-bodybuilding-back-workout/
+- 전 종목 고반복 — https://generationiron.com/best-back-workout-exercises-akim-williams-ndo-champ/
+- 바벨로우 기본기 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-a-bigger-back
+- 굿모닝 포함 로우 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-a-bigger-back
+- 여성 초보 루틴 — https://shop.bodybuilding.com/blogs/training/back-workouts-for-women-build-the-shape-you-want
+- 여성 근력 루틴 — https://shop.bodybuilding.com/blogs/training/back-workouts-for-women-build-the-shape-you-want
+- 하이로우 머신 포함 — https://shop.bodybuilding.com/blogs/training/what-is-the-best-5-day-workout-split
+- 클로즈그립 시작 — https://shop.bodybuilding.com/blogs/training/what-is-the-best-5-day-workout-split
+- 주 2회 등운동 A — https://gymdone.com/ko/blog/back-workout
+- 주 2회 등운동 B — https://gymdone.com/ko/blog/back-workout
+- 등 프레임 넓히기 — https://burnfit.io/article/%EB%93%B1-%ED%94%84%EB%A0%88%EC%9E%84%EC%9D%84-%EB%84%93%ED%9E%88%EB%8A%94-%EB%93%B1-%EC%9A%B4%EB%8F%99-%EB%A3%A8%ED%8B%B4/
+- 머신 위주 펌핑 — https://barbend.com/news/regan-grimes-back-training-hypertrophy/
+- 해머 머신 펌핑 — https://animalpak.com/blogs/fitness-bodybuilding/back-metabolic-day
+
+## legs (40)
+
+- 균형 잡힌 기본 — https://www.strengthlog.com/leg-day-workout/
+- 고중량 근력·근비대 — https://fitnessvolt.com/leg-day-workouts/
+- 대퇴·둔근 밸런스 — https://fitnessvolt.com/leg-day-workouts/
+- 머신 위주 하체 — https://fitnessvolt.com/leg-day-workouts/
+- 고강도 템포 하체 — https://www.muscleandstrength.com/workouts/lsl-leg-day-workout
+- 고볼륨 보디빌딩 — https://www.muscleandstrength.com/workouts/phil-health-high-frequency-leg-workout
+- 둔근 슈퍼세트 — https://www.muscleandstrength.com/workouts/booty-burner-courtney-king-full-glute-workout
+- 스쿼트 10x10 힙 — https://www.muscleandstrength.com/workouts/the-butt-builder.html
+- 머신 고반복 볼륨 — https://www.muscleandstrength.com/workouts/olympian-branch-warren-leg-workout
+- 대퇴사두 번아웃 — https://www.muscleandstrength.com/workouts/burn-to-grow-quad-workout
+- 햄스트링 집중 — https://www.muscleandstrength.com/workouts/2-weekly-workouts-for-larger-legs
+- 대퇴사두 집중 — https://www.muscleandstrength.com/workouts/2-weekly-workouts-for-larger-legs
+- 20회 고반복 쇼크 — https://www.muscleandstrength.com/workouts/20-rep-quad-hamstring-shock-workout
+- 머신 위주 초보 — https://www.muscleandstrength.com/workouts/38-beginner-leg-workout.html
+- 무릎 친화 대퇴사두 — https://www.muscleandstrength.com/workouts/8-week-knee-friendly-quad-workout
+- 힙쓰러스트+RDL — https://www.muscleandstrength.com/workouts/rp-21-glute-workout-program
+- 햄스트링 컬 3종 — https://www.muscleandstrength.com/workouts/4-week-hamstring-helper-workout
+- 피라미드 스쿼트 — https://www.muscleandstrength.com/workouts/30-leg-growth-workout---3-week-cycle.html
+- 덤벨 하체 — https://www.muscleandstrength.com/workouts/6-exercise-home-dumbbell-leg-workout
+- 30분 둔근 집중 — https://fitnessvolt.com/30-minute-glute-workout/
+- 힙쓰러스트 우선 — https://www.jefit.com/blog/why-you-should-add-hip-thrust-to-leg-day-for-stronger-glutes
+- 프론트 스쿼트 중심 — https://www.setforset.com/blogs/news/leg-workout
+- 백스쿼트 중심 — https://www.setforset.com/blogs/news/leg-workout
+- 스쿼트 5x5 — https://www.bulk.com/uk/the-core/leg-day-workout/
+- RDL 5x5 — https://www.bulk.com/uk/the-core/leg-day-workout/
+- 둔근·햄 슈퍼세트 — https://shop.bodybuilding.com/blogs/training/glute-workouts-for-women-get-a-bigger-butt
+- 초보 머신 4종 — https://tilnote.io/pages/6a0af303feaf255d2099bafa
+- 기본 하체 5종 — https://gongysd.com/workout-log/?bmode=view&idx=167993573
+- 초보 하체 — https://gongysd.com/workout-log/?bmode=view&idx=167993573
+- 중급 하체 — https://gongysd.com/workout-log/?bmode=view&idx=167993573
+- 보디빌딩 입문 — https://barbend.com/bodybuilding-leg-workout/
+- 보디빌딩 중급 — https://barbend.com/bodybuilding-leg-workout/
+- 보디빌딩 상급 — https://barbend.com/bodybuilding-leg-workout/
+- 대퇴사두 보디빌딩 — https://barbend.com/bodybuilding-leg-workout/
+- 햄스트링 보디빌딩 — https://barbend.com/bodybuilding-leg-workout/
+- 스쿼트 고볼륨 — https://www.garagegymreviews.com/tom-platz-leg-workout
+- 고블릿 입문 — https://www.garagegymreviews.com/tom-platz-leg-workout
+- 스쿼트+불가리안 — https://www.garagegymreviews.com/tom-platz-leg-workout
+- 자이언트 세트 — https://garagegymreviews.com/the-rocks-leg-workout
+- 홈 하체·힙 고반복 — https://www.esquirekorea.co.kr/article/59364
+
+## shoulders (40)
+
+- 오버헤드 5종 기본 — https://www.strengthlog.com/shoulder-workout/
+- 바벨만 — https://fitnessvolt.com/barbell-shoulder-workout/
+- 덤벨+페이스풀 입문 — https://barbend.com/bodybuilding-shoulder-workout/
+- 바벨 프레스 3종 — https://barbend.com/best-shoulder-exercises/
+- 근력 프레스 중심 — https://barbend.com/best-shoulder-exercises/
+- 아놀드 근비대 — https://barbend.com/best-shoulder-exercises/
+- 홈트 덤벨 3종 — https://barbend.com/best-shoulder-exercises/
+- 덤벨만 5종 — https://barbend.com/dumbbell-shoulder-workouts/
+- 머신·케이블 슈퍼세트 — https://barbend.com/news/dana-linn-bailey-shoulder-training-with-joe-bennett/
+- 삼각근 매스업 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-men-get-bigger-delts
+- 데피니션 슈퍼세트 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-men-get-bigger-delts
+- 머신 기초 다지기 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-men-get-bigger-delts
+- 측면 삼각근 집중 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-men-get-bigger-delts
+- 전면 삼각근 집중 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-men-get-bigger-delts
+- 선피로 레이즈 먼저 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-men-get-bigger-delts
+- 프레스+치팅 레이즈 — https://learn.athleanx.com/articles/shoulders-for-men/the-perfect-shoulder-workout
+- 과학 기반 볼륨 — https://builtwithscience.com/workouts/shoulder-workout-science/
+- 파워 프레스 6종 — https://setforset.com/blogs/news/shoulder-workout
+- 덤벨 피라미드 5종 — https://www.jefit.com/routines/20371/stronger-and-bigger-shoulders
+- 프레스 없는 측면 — https://www.boostcamp.app/users/qpp6XD-rp-shoulder-workout
+- 여성 초급 4종 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-women-add-shape-and-size
+- 덤벨 고볼륨 드롭세트 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-women-add-shape-and-size
+- 어깨 너비 강조 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-women-add-shape-and-size
+- 고급 8종 볼륨 — https://shop.bodybuilding.com/blogs/training/shoulder-workouts-for-women-add-shape-and-size
+- 스트릭트 프레스 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-get-bigger-shoulders
+- 덤벨 입문 3종 — https://shop.bodybuilding.com/blogs/training/10-best-shoulder-exercises-for-building-muscle
+- 머신 펌핑 — https://shop.bodybuilding.com/blogs/training/10-best-shoulder-exercises-for-building-muscle
+- 3종 숄더 빌더 — https://shop.bodybuilding.com/blogs/training/the-3-move-shoulder-builder
+- 아놀드 클래식 — https://shop.bodybuilding.com/blogs/training/arnolds-classic-shoulder-and-arms-workout
+- 고반복 머신 3종 — https://www.esquirekorea.co.kr/article/58295
+- 덤벨 4종 5x15 — https://www.gqkorea.co.kr/2017/09/28/%EC%96%B4%EA%B9%A8-%EA%B9%A1%ED%8C%A8-%EB%90%98%EB%8A%94-%EB%8D%A4%EB%B2%A8-%EC%9A%B4%EB%8F%99-4%EA%B0%80%EC%A7%80
+- 초보 덤벨 4종 — https://gongysd.com/workout-log/?idx=174110047&bmode=view
+- 초보 머신 3종 — https://tilnote.io/pages/6a0af303feaf255d2099bafb
+- 바벨+슈러그 입문 — https://www.muscleandstrength.com/articles/complete-guide-on-building-shoulders-into-boulders
+- 슈퍼세트 6종 — https://www.muscleandstrength.com/articles/complete-guide-on-building-shoulders-into-boulders
+- 덤벨 프레스+슈러그 — https://www.muscleandstrength.com/workouts/shoulder-training-sucks-delt-workouts
+- 클린&프레스 파워 — https://www.muscleandstrength.com/workouts/shoulder-training-sucks-delt-workouts
+- 스트렝스 A 페이스풀 — https://www.muscleandstrength.com/workouts/perfect-workout-for-shoulders
+- 스트렝스 B 머신 — https://www.muscleandstrength.com/workouts/perfect-workout-for-shoulders
+- 선명도 6종 — https://www.muscleandstrength.com/workouts/super-shoulder-striations-workout
+
+## arms (43)
+
+- 이두·삼두 트라이세트 — https://shop.bodybuilding.com/blogs/training/biceps-and-triceps-workout-triple-threat-arm-assault
+- 고중량 팔 + 전완 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-bigger-arms
+- 벤치딥·스파이더컬 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-bigger-arms
+- 이두 먼저 팔 루틴 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-bigger-arms
+- 클로즈그립·머신 팔 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-bigger-arms
+- 바벨 팔 + 손목 — https://shop.bodybuilding.com/blogs/training/the-best-workouts-to-build-bigger-arms
+- 초보 팔 루틴 — https://fitnessvolt.com/best-arm-workouts/
+- 근비대 팔 루틴 — https://fitnessvolt.com/best-arm-workouts/
+- 케이블 위주 팔 — https://fitnessvolt.com/best-arm-workouts/
+- 팔 근력 루틴 — https://fitnessvolt.com/best-arm-workouts/
+- 이두 4종·삼두 3종 — https://gymgeek.com/workout-routines/arm-day-workout
+- 머신·케이블 초급 — https://barbend.com/bodybuilding-arm-workout/
+- 머신·케이블 중급 — https://barbend.com/bodybuilding-arm-workout/
+- 머신·케이블 상급 — https://barbend.com/bodybuilding-arm-workout/
+- 이두·삼두 슈퍼세트 — https://www.coachweb.com/arms-workouts/7716/the-superset-arms-workout-for-men-who-want-bigger-biceps-and-triceps
+- 인클라인 슈퍼세트 — https://coachweb.com/arms-workouts/7912/the-best-arms-workout-with-weights
+- 20분 팔 슈퍼세트 — https://coachweb.com/arm-workouts-and-exercises/6324/20-minute-arms-workout
+- 팔 트라이세트 — https://www.coachweb.com/arms-workouts/5681/fill-your-sleeves-with-this-tri-set-arms-workout
+- 팔 데이 기본 — https://www.coachweb.com/fitness/arms-workouts
+- 이두 집중 — https://www.active.com/fitness/articles/arm-workouts-to-build-muscle
+- 삼두 집중 — https://www.active.com/fitness/articles/arm-workouts-to-build-muscle
+- 근비대 이두·삼두 — https://www.boxrox.com/?p=238583
+- 아놀드 비시즌 팔 — https://generationiron.com/arnold-schwarzenegger-arm-workout/
+- 아놀드 시즌 팔 — https://generationiron.com/arnold-schwarzenegger-arm-workout/
+- 라이언 테리 슈퍼세트 — https://generationiron.com/ryan-terry-arm-workout/
+- 고반복 팔 슈퍼세트 — https://generationiron.com/arm-workout-youll-feel-until-next-week/
+- 15회 팔 슈퍼세트 — https://generationiron.com/get-bigger-arms/
+- 이두 3종 볼륨 — https://generationiron.com/roman-reigns-workout/
+- 클래식 팔 데이 — https://outlift.com/arm-day-workout
+- 순수 팔 데이 — https://outlift.com/arm-day-workout
+- 중급 팔 근력·근비대 — https://www.strengthlog.com/how-to-get-big-arms/
+- 초급 팔 슈퍼세트 — https://www.strengthlog.com/?p=34553
+- 이두 3종 루틴 — https://www.strengthlog.com/biceps-muscles-exercises-workout/
+- 4주 팔근육 1주차 — https://www.gqkorea.co.kr/?p=18247
+- 헬스 초보 팔 3종 — https://v.daum.net/v/H5g2HT2uEU
+- 삼두 키우기 — https://letyukn.tistory.com/35
+- 고중량 저반복 팔 — https://thisiswhyimfit.com/?p=7863
+- 이두·삼두 8종 — https://prosupps.com/blogs/articles/sleeve-bursting-arm-workout
+- 올드스쿨 삼두 A — https://fitnessvolt.com/old-school-triceps-workouts/
+- 올드스쿨 삼두 B — https://fitnessvolt.com/old-school-triceps-workouts/
+- 딥스·덤벨 삼두 — https://fitnessvolt.com/old-school-triceps-workouts/
+- 이두 근비대 — https://www.garagegymreviews.com/best-bicep-workout
+- 삼두 피라미드 — https://builtwithscience.com/best-triceps-workout/
